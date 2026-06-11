@@ -133,22 +133,6 @@
     }
   }
 
-  /* ── Révélation de la section contact ── */
-  var revealables = document.querySelectorAll(".reveal");
-  if (reducedMotion || !("IntersectionObserver" in window)) {
-    revealables.forEach(function (el) { el.classList.add("visible"); });
-  } else {
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("visible");
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.12 });
-    revealables.forEach(function (el) { observer.observe(el); });
-  }
-
   /* ── Formulaire de contact (Netlify Forms, AJAX) ── */
   var form = document.getElementById("contactForm");
   var formStatus = document.getElementById("formStatus");

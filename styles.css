@@ -220,8 +220,40 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 }
 
 /* ════════════════════════════════════════════
-   CONTACT
+   PAGE CONTACT
    ════════════════════════════════════════════ */
+
+.site-header {
+  padding: 1.4rem 1.6rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: opacity 250ms var(--ease-out);
+}
+.brand:hover { opacity: 0.75; }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+.brand-city {
+  font-weight: 500;
+  font-size: 0.5rem;
+  letter-spacing: 0.42em;
+  color: var(--accent);
+}
+
+.page-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 170px);
+}
 
 .contact {
   max-width: 560px;
@@ -300,15 +332,6 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 .form-success h3 { font-weight: 600; font-size: 1.4rem; }
 .form-success p { color: var(--grey); }
 
-/* ── Révélation au scroll ─────────────────── */
-
-.reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
-}
-.reveal.visible { opacity: 1; transform: translateY(0); }
-
 /* ── Footer ───────────────────────────────── */
 
 .footer {
@@ -338,6 +361,5 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 
   .accent-node { animation: none; }
   .comet, .pulse { display: none; }
-  .reveal { opacity: 1; transform: none; transition: none; }
   .node-field { display: none; }
 }
