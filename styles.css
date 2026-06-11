@@ -328,6 +328,7 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 .contact-sub { color: var(--grey); margin-bottom: 2.8rem; }
 
 #contactForm { display: grid; gap: 1.2rem; text-align: left; }
+#contactForm[hidden] { display: none; }
 
 .form-field { display: grid; gap: 0.4rem; }
 

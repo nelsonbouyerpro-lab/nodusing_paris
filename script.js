@@ -299,6 +299,8 @@
           if (!response.ok) throw new Error("HTTP " + response.status);
           form.hidden = true;
           formSuccess.hidden = false;
+          submitBtn.disabled = false;
+          btnLabel.textContent = t("send");
         })
         .catch(function () {
           submitBtn.disabled = false;
