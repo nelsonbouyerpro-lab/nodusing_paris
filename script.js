@@ -6,6 +6,124 @@
 
   var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* ── Thème clair / sombre ──
+     L'attribut data-theme est posé sur <html> par le script
+     inline du <head> (anti-flash) ; ici on gère la bascule. */
+  var themeToggle = document.getElementById("themeToggle");
+
+  function currentTheme() {
+    return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  }
+
+  if (themeToggle) {
+    themeToggle.addEventListener("click", function () {
+      var next = currentTheme() === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) { /* stockage indisponible */ }
+      updateControlLabels();
+    });
+  }
+
+  /* ── Langue FR / EN ── */
+  var I18N = {
+    fr: {
+      "title.home": "nodusing Paris — Applications sur mesure",
+      "title.contact": "Contact — nodusing Paris",
+      "tagline": "Applications sur mesure pour les entreprises et commerces<span class=\"pt\">.</span>",
+      "cta": "Démarrer un projet",
+      "contact.h2": "Démarrons votre projet<span class=\"pt\">.</span>",
+      "contact.sub": "Parlez-nous de votre idée — nous revenons vers vous sous 24&nbsp;heures.",
+      "label.nom": "Nom",
+      "label.email": "Email",
+      "label.message": "Votre projet",
+      "ph.nom": "Marie Dupont",
+      "ph.email": "marie@entreprise.fr",
+      "ph.message": "Décrivez votre idée…",
+      "send": "Envoyer",
+      "sending": "Envoi en cours…",
+      "success.h3": "Message bien reçu<span class=\"pt\">.</span>",
+      "success.p": "Nous revenons vers vous sous 24&nbsp;heures ouvrées.",
+      "err.required": "Ce champ est requis.",
+      "err.email": "Adresse email invalide.",
+      "err.fix": "Merci de corriger les champs signalés.",
+      "err.network": "Une erreur est survenue. Réessayez dans un instant.",
+      "theme.toDark": "Passer en mode sombre",
+      "theme.toLight": "Passer en mode clair",
+      "lang.switch": "Switch to English"
+    },
+    en: {
+      "title.home": "nodusing Paris — Custom applications",
+      "title.contact": "Contact — nodusing Paris",
+      "tagline": "Custom applications for businesses and retailers<span class=\"pt\">.</span>",
+      "cta": "Start a project",
+      "contact.h2": "Let's start your project<span class=\"pt\">.</span>",
+      "contact.sub": "Tell us about your idea — we'll get back to you within 24&nbsp;hours.",
+      "label.nom": "Name",
+      "label.email": "Email",
+      "label.message": "Your project",
+      "ph.nom": "Jane Smith",
+      "ph.email": "jane@company.com",
+      "ph.message": "Tell us about your idea…",
+      "send": "Send",
+      "sending": "Sending…",
+      "success.h3": "Message received<span class=\"pt\">.</span>",
+      "success.p": "We'll get back to you within one business day.",
+      "err.required": "This field is required.",
+      "err.email": "Invalid email address.",
+      "err.fix": "Please correct the highlighted fields.",
+      "err.network": "Something went wrong. Please try again.",
+      "theme.toDark": "Switch to dark mode",
+      "theme.toLight": "Switch to light mode",
+      "lang.switch": "Passer en français"
+    }
+  };
+
+  var lang = "fr";
+  try { lang = localStorage.getItem("lang") === "en" ? "en" : "fr"; } catch (e) { /* stockage indisponible */ }
+
+  var langToggle = document.getElementById("langToggle");
+
+  function t(key) {
+    return (I18N[lang] && I18N[lang][key]) || I18N.fr[key] || key;
+  }
+
+  function updateControlLabels() {
+    if (themeToggle) {
+      themeToggle.setAttribute("aria-label", t(currentTheme() === "dark" ? "theme.toLight" : "theme.toDark"));
+    }
+    if (langToggle) {
+      langToggle.textContent = lang === "fr" ? "EN" : "FR";
+      langToggle.setAttribute("aria-label", t("lang.switch"));
+    }
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.innerHTML = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+    });
+    var titleKey = document.body.getAttribute("data-title-key");
+    if (titleKey) document.title = t(titleKey);
+    // re-traduit les messages d'erreur déjà affichés
+    document.querySelectorAll(".form-field.invalid input, .form-field.invalid textarea").forEach(function (el) {
+      validateField(el);
+    });
+    updateControlLabels();
+  }
+
+  if (langToggle) {
+    langToggle.addEventListener("click", function () {
+      lang = lang === "fr" ? "en" : "fr";
+      try { localStorage.setItem("lang", lang); } catch (e) { /* stockage indisponible */ }
+      applyLang();
+    });
+  }
+
+  applyLang();
+
   /* ── Champ de nœuds connectés (fond du hero) ── */
   var canvas = document.getElementById("nodeField");
   if (canvas && !reducedMotion) {
@@ -36,6 +154,7 @@
     };
 
     var tick = function () {
+      var rgb = currentTheme() === "dark" ? "91, 124, 255" : "0, 47, 167";
       ctx.clearRect(0, 0, W, H);
 
       for (var i = 0; i < nodes.length; i++) {
@@ -52,8 +171,8 @@
           var dy = nodes[i].y - nodes[j].y;
           var d2 = dx * dx + dy * dy;
           if (d2 < LINK_DIST * LINK_DIST) {
-            var a = (1 - Math.sqrt(d2) / LINK_DIST) * 0.1;
-            ctx.strokeStyle = "rgba(0, 47, 167, " + a.toFixed(3) + ")";
+            var a = (1 - Math.sqrt(d2) / LINK_DIST) * (rgb === "0, 47, 167" ? 0.1 : 0.12);
+            ctx.strokeStyle = "rgba(" + rgb + ", " + a.toFixed(3) + ")";
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -64,7 +183,7 @@
       }
 
       for (i = 0; i < nodes.length; i++) {
-        ctx.fillStyle = "rgba(0, 47, 167, 0.28)";
+        ctx.fillStyle = "rgba(" + rgb + ", " + (rgb === "0, 47, 167" ? 0.28 : 0.35) + ")";
         ctx.beginPath();
         ctx.arc(nodes[i].x, nodes[i].y, nodes[i].r, 0, Math.PI * 2);
         ctx.fill();
@@ -121,12 +240,12 @@
   function validateField(input) {
     var value = input.value.trim();
     if (input.required && !value) {
-      setError(input, "Ce champ est requis.");
+      setError(input, t("err.required"));
       return false;
     }
     if (input.type === "email" && value) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
-        setError(input, "Adresse email invalide.");
+        setError(input, t("err.email"));
         return false;
       }
     }
@@ -153,7 +272,7 @@
         if (!validateField(input)) allValid = false;
       });
       if (!allValid) {
-        formStatus.textContent = "Merci de corriger les champs signalés.";
+        formStatus.textContent = t("err.fix");
         formStatus.classList.add("error");
         var firstInvalid = form.querySelector(".form-field.invalid input, .form-field.invalid textarea");
         if (firstInvalid) firstInvalid.focus();
@@ -163,7 +282,7 @@
       var submitBtn = form.querySelector(".btn-submit");
       var btnLabel = submitBtn.querySelector(".btn-label");
       submitBtn.disabled = true;
-      btnLabel.textContent = "Envoi en cours…";
+      btnLabel.textContent = t("sending");
       formStatus.textContent = "";
       formStatus.classList.remove("error");
 
@@ -183,8 +302,8 @@
         })
         .catch(function () {
           submitBtn.disabled = false;
-          btnLabel.textContent = "Envoyer";
-          formStatus.textContent = "Une erreur est survenue. Réessayez dans un instant.";
+          btnLabel.textContent = t("send");
+          formStatus.textContent = t("err.network");
           formStatus.classList.add("error");
         });
     });
