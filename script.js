@@ -52,8 +52,8 @@
           var dy = nodes[i].y - nodes[j].y;
           var d2 = dx * dx + dy * dy;
           if (d2 < LINK_DIST * LINK_DIST) {
-            var a = (1 - Math.sqrt(d2) / LINK_DIST) * 0.12;
-            ctx.strokeStyle = "rgba(91, 124, 255, " + a.toFixed(3) + ")";
+            var a = (1 - Math.sqrt(d2) / LINK_DIST) * 0.1;
+            ctx.strokeStyle = "rgba(0, 47, 167, " + a.toFixed(3) + ")";
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -64,7 +64,7 @@
       }
 
       for (i = 0; i < nodes.length; i++) {
-        ctx.fillStyle = "rgba(91, 124, 255, 0.35)";
+        ctx.fillStyle = "rgba(0, 47, 167, 0.28)";
         ctx.beginPath();
         ctx.arc(nodes[i].x, nodes[i].y, nodes[i].r, 0, Math.PI * 2);
         ctx.fill();
@@ -78,59 +78,31 @@
     requestAnimationFrame(tick);
   }
 
-  /* ── L'animation du logo ──
-     CSS : la classe .play déclenche la séquence (trait, nœuds,
-     ondes, lettres). SMIL : la comète et l'impulsion suivent le
-     tracé via animateMotion, déclenchées ici pour rester
-     synchronisées et respecter prefers-reduced-motion. */
+  /* ── L'animation du logo, en boucle ──
+     CSS : .cycle déclenche le dessin du monogramme (trait,
+     nœuds, ondes) ; .play déclenche les éléments joués une
+     seule fois (wordmark, PARIS, tagline). La comète suit le
+     tracé via SMIL (animateMotion), relancée à chaque cycle. */
   var heroLogo = document.getElementById("heroLogo");
   var cometMove = document.getElementById("cometMove");
-  var pulseMove = document.getElementById("pulseMove");
-  var pulseFade = document.getElementById("pulseFade");
-  var cometTimer = null;
+  var CYCLE_MS = 6500; // séquence ~2.8 s + pause contemplative
 
-  function playIntro() {
-    if (reducedMotion) return;
-
-    heroLogo.classList.remove("play");
-    document.body.classList.remove("play");
+  function runCycle() {
+    heroLogo.classList.remove("cycle");
     void heroLogo.offsetWidth; // force le redémarrage des animations CSS
-    heroLogo.classList.add("play");
-    document.body.classList.add("play");
+    heroLogo.classList.add("cycle");
 
     // la comète part avec le trait (délai 0.4s, voir CSS)
-    clearTimeout(cometTimer);
-    cometTimer = setTimeout(function () {
+    setTimeout(function () {
       try { cometMove.beginElement(); } catch (e) { /* SMIL indisponible */ }
     }, 400);
   }
 
-  function firePulse() {
-    try {
-      pulseMove.beginElement();
-      pulseFade.beginElement();
-    } catch (e) { /* SMIL indisponible */ }
-  }
-
-  if (heroLogo) {
-    if (!reducedMotion) {
-      playIntro();
-
-      // impulsion lumineuse périodique une fois l'intro posée
-      setTimeout(function () {
-        firePulse();
-        setInterval(firePulse, 7500);
-      }, 5200);
-
-      // rejouer au clic ou au clavier
-      heroLogo.addEventListener("click", playIntro);
-      heroLogo.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          playIntro();
-        }
-      });
-    }
+  if (heroLogo && !reducedMotion) {
+    heroLogo.classList.add("play");
+    document.body.classList.add("play");
+    runCycle();
+    setInterval(runCycle, CYCLE_MS);
   }
 
   /* ── Formulaire de contact (Netlify Forms, AJAX) ── */

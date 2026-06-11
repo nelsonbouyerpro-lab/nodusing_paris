@@ -26,7 +26,7 @@
     <section class="hero">
       <canvas id="nodeField" class="node-field" aria-hidden="true"></canvas>
 
-      <div class="hero-logo" id="heroLogo" role="img" aria-label="nodusing Paris" tabindex="0" title="Cliquer pour rejouer l'animation">
+      <div class="hero-logo" id="heroLogo" role="img" aria-label="nodusing Paris">
 
         <svg class="monogram" viewBox="0 0 140 170" aria-hidden="true">
           <defs>
@@ -37,32 +37,24 @@
 
           <!-- trait du N -->
           <path id="nPath" class="mark-stroke" d="M26 143 V27 L114 143 V27"
-                fill="none" stroke="#F5F7FA" stroke-width="6"
+                fill="none" stroke="#12161D" stroke-width="6"
                 stroke-linecap="round" stroke-linejoin="round"/>
 
-          <!-- comète d'introduction -->
-          <circle class="comet" r="7" fill="#5B7CFF" filter="url(#glow)">
+          <!-- comète qui parcourt le tracé -->
+          <circle class="comet" r="7" fill="#002FA7" filter="url(#glow)">
             <animateMotion id="cometMove" dur="1.6s" begin="indefinite"
                            path="M26 143 V27 L114 143 V27"/>
           </circle>
 
-          <!-- impulsion périodique (régime de croisière) -->
-          <circle class="pulse" r="4.5" fill="#8FA6FF" filter="url(#glow)" opacity="0">
-            <animateMotion id="pulseMove" dur="2.2s" begin="indefinite"
-                           path="M26 143 V27 L114 143 V27"/>
-            <animate id="pulseFade" attributeName="opacity" begin="indefinite"
-                     dur="2.2s" values="0;0.75;0.75;0" keyTimes="0;0.12;0.82;1"/>
-          </circle>
-
           <!-- ondes du nœud accent -->
-          <circle class="ripple ripple-1" cx="114" cy="143" r="13" fill="none" stroke="#5B7CFF" stroke-width="2"/>
-          <circle class="ripple ripple-2" cx="114" cy="143" r="13" fill="none" stroke="#5B7CFF" stroke-width="1.5"/>
+          <circle class="ripple ripple-1" cx="114" cy="143" r="13" fill="none" stroke="#002FA7" stroke-width="2"/>
+          <circle class="ripple ripple-2" cx="114" cy="143" r="13" fill="none" stroke="#002FA7" stroke-width="1.5"/>
 
           <!-- les 4 nœuds -->
-          <circle class="node n1" cx="26"  cy="143" r="10" fill="#F5F7FA"/>
-          <circle class="node n2" cx="26"  cy="27"  r="10" fill="#F5F7FA"/>
-          <circle class="node n3 accent-node" cx="114" cy="143" r="13" fill="#5B7CFF"/>
-          <circle class="node n4" cx="114" cy="27"  r="10" fill="#F5F7FA"/>
+          <circle class="node n1" cx="26"  cy="143" r="10" fill="#12161D"/>
+          <circle class="node n2" cx="26"  cy="27"  r="10" fill="#12161D"/>
+          <circle class="node n3 accent-node" cx="114" cy="143" r="13" fill="#002FA7"/>
+          <circle class="node n4" cx="114" cy="27"  r="10" fill="#12161D"/>
         </svg>
 
         <p class="wordmark" aria-hidden="true">
