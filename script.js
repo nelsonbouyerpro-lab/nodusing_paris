@@ -76,8 +76,8 @@
           var dy = nodes[i].y - nodes[j].y;
           var d2 = dx * dx + dy * dy;
           if (d2 < LINK_DIST * LINK_DIST) {
-            var a = (1 - Math.sqrt(d2) / LINK_DIST) * 0.13;
-            ctx.strokeStyle = "rgba(216, 178, 106, " + a.toFixed(3) + ")";
+            var a = (1 - Math.sqrt(d2) / LINK_DIST) * 0.15;
+            ctx.strokeStyle = "rgba(91, 124, 255, " + a.toFixed(3) + ")";
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -87,9 +87,9 @@
         }
       }
 
-      // points dorés
+      // points lumière
       for (i = 0; i < nodes.length; i++) {
-        ctx.fillStyle = "rgba(216, 178, 106, 0.35)";
+        ctx.fillStyle = "rgba(91, 124, 255, 0.4)";
         ctx.beginPath();
         ctx.arc(nodes[i].x, nodes[i].y, nodes[i].r, 0, Math.PI * 2);
         ctx.fill();
