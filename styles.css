@@ -202,6 +202,19 @@ svg { display: block; }
   max-width: 44ch;
 }
 
+.demo-link {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--grey);
+  border-bottom: 1px solid transparent;
+  transition: color 250ms var(--ease-out), border-color 250ms var(--ease-out);
+}
+.demo-link:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 /* ════════════════════════════════════════════
    L'ANIMATION DU LOGO
    État par défaut = état final (visible).
@@ -388,6 +401,143 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 }
 .form-success h3 { font-weight: 600; font-size: 1.4rem; }
 .form-success p { color: var(--grey); }
+
+/* ════════════════════════════════════════════
+   PAGE JEU — « Le Nœud »
+   ════════════════════════════════════════════ */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.9rem;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--fg);
+}
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.game-main {
+  display: flex;
+  justify-content: center;
+  padding: 5.5rem 1.5rem 3rem;
+}
+
+.game {
+  width: min(680px, 100%);
+  text-align: center;
+}
+
+.game h1 {
+  font-weight: 600;
+  font-size: clamp(1.9rem, 5vw, 2.7rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.8rem;
+}
+
+.game-sub {
+  color: var(--grey);
+  max-width: 52ch;
+  margin: 0 auto 2.2rem;
+}
+
+.game-hud {
+  display: flex;
+  justify-content: center;
+  gap: clamp(1.4rem, 5vw, 3rem);
+  margin-bottom: 1.4rem;
+}
+
+.hud-item { display: grid; gap: 0.15rem; }
+
+.hud-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--grey);
+}
+
+.hud-value {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  color: var(--fg);
+}
+
+.game-stage { position: relative; }
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  touch-action: none;
+  cursor: grab;
+  transition: background-color 350ms var(--ease-out);
+}
+
+@media (max-width: 600px) {
+  #gameCanvas { aspect-ratio: 1 / 1; }
+}
+
+.win-panel[hidden] { display: none; }
+.win-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 0.8rem;
+  background: var(--surface);
+  border: 1px solid rgba(0, 47, 167, 0.3);
+  border-radius: 16px;
+  padding: 2rem 2.4rem;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+  animation: panelIn 0.45s var(--ease-pop) both;
+}
+[data-theme="dark"] .win-panel { border-color: rgba(91, 124, 255, 0.4); }
+@keyframes panelIn {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.92); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.win-panel h3 { font-weight: 600; font-size: 1.3rem; }
+
+.win-stats {
+  color: var(--grey);
+  font-size: 0.9rem;
+}
+.win-stats strong { color: var(--fg); font-family: var(--font-mono); font-weight: 500; }
+
+.game-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 1.4rem;
+}
+
+.game-note {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--grey);
+  max-width: 58ch;
+  margin: 2.2rem auto 0;
+  line-height: 1.8;
+}
 
 /* ── Footer ───────────────────────────────── */
 

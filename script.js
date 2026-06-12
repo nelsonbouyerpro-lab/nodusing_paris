@@ -49,7 +49,22 @@
       "err.network": "Une erreur est survenue. Réessayez dans un instant.",
       "theme.toDark": "Passer en mode sombre",
       "theme.toLight": "Passer en mode clair",
-      "lang.switch": "Switch to English"
+      "lang.switch": "Switch to English",
+      "demo": "Essayer notre démo — Le Nœud",
+      "title.game": "Le Nœud — démo technique | nodusing Paris",
+      "game.eyebrow": "Démo technique",
+      "game.h2": "Démêlez le réseau<span class=\"pt\">.</span>",
+      "game.sub": "Déplacez les nœuds pour qu'aucune connexion n'en croise une autre. Chaque niveau est un réseau généré procéduralement — toujours soluble, jamais le même.",
+      "game.level": "Niveau",
+      "game.crossings": "Croisements",
+      "game.moves": "Coups",
+      "game.time": "Temps",
+      "game.hint": "Indice",
+      "game.shuffle": "Mélanger",
+      "game.win": "Réseau démêlé&nbsp;!",
+      "game.next": "Niveau suivant",
+      "game.best": "Record",
+      "game.note": "Généré procéduralement : géométrie computationnelle, détection de croisements en temps réel, rendu canvas — 100&nbsp;% code maison, zéro bibliothèque."
     },
     en: {
       "title.home": "nodusing Paris — Custom applications",
@@ -74,7 +89,22 @@
       "err.network": "Something went wrong. Please try again.",
       "theme.toDark": "Switch to dark mode",
       "theme.toLight": "Switch to light mode",
-      "lang.switch": "Passer en français"
+      "lang.switch": "Passer en français",
+      "demo": "Try our demo — The Knot",
+      "title.game": "The Knot — tech demo | nodusing Paris",
+      "game.eyebrow": "Tech demo",
+      "game.h2": "Untangle the network<span class=\"pt\">.</span>",
+      "game.sub": "Drag the nodes so that no connection crosses another. Every level is a procedurally generated network — always solvable, never the same.",
+      "game.level": "Level",
+      "game.crossings": "Crossings",
+      "game.moves": "Moves",
+      "game.time": "Time",
+      "game.hint": "Hint",
+      "game.shuffle": "Shuffle",
+      "game.win": "Network untangled!",
+      "game.next": "Next level",
+      "game.best": "Best",
+      "game.note": "Procedurally generated: computational geometry, real-time crossing detection, canvas rendering — 100% hand-written code, zero libraries."
     }
   };
 
