@@ -426,6 +426,19 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 
 .contact-sub { color: var(--grey); margin-bottom: 2.8rem; }
 
+.contact-email {
+  margin-top: 1.8rem;
+  font-size: 0.95rem;
+  color: var(--grey);
+}
+.contact-email a {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 250ms var(--ease-out);
+}
+.contact-email a:hover { border-bottom-color: var(--accent); }
+
 #contactForm { display: grid; gap: 1.2rem; text-align: left; }
 #contactForm[hidden] { display: none; }
 
@@ -638,6 +651,12 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
   letter-spacing: 0.14em;
   color: var(--grey);
 }
+.footer-mail {
+  color: var(--grey);
+  border-bottom: 1px solid transparent;
+  transition: color 250ms var(--ease-out), border-color 250ms var(--ease-out);
+}
+.footer-mail:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ── Accessibilité : mouvement réduit ─────── */
 /* la classe .play n'est jamais posée en reduced-motion (géré en JS) :
