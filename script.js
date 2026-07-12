@@ -29,7 +29,6 @@
     fr: {
       "title.home": "nodusing Paris — Applications sur mesure",
       "title.contact": "Contact — nodusing Paris",
-      "tagline": "Applications sur mesure pour les entreprises et commerces<span class=\"pt\">.</span>",
       "cta": "Démarrer un projet",
       "contact.h2": "Démarrons votre projet<span class=\"pt\">.</span>",
       "contact.sub": "Parlez-nous de votre idée — nous revenons vers vous sous 24&nbsp;heures.",
@@ -72,7 +71,6 @@
     en: {
       "title.home": "nodusing Paris — Custom applications",
       "title.contact": "Contact — nodusing Paris",
-      "tagline": "Custom applications for businesses and retailers<span class=\"pt\">.</span>",
       "cta": "Start a project",
       "contact.h2": "Let's start your project<span class=\"pt\">.</span>",
       "contact.sub": "Tell us about your idea — we'll get back to you within 24&nbsp;hours.",
