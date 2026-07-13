@@ -1,0 +1,4 @@
+# Liens de marque Brick Rogue — masquent le nom de package dans les liens partagés.
+# 302 (temporaire) : repointables plus tard (ex. /beta -> production) sans cache agressif.
+/beta   https://play.google.com/apps/testing/com.nelsonbouyer.brickrogue            302
+/get    https://play.google.com/store/apps/details?id=com.nelsonbouyer.brickrogue   302
