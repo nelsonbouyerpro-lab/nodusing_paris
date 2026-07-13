@@ -135,15 +135,27 @@ svg { display: block; }
    HERO — le logo en très grand
    ════════════════════════════════════════════ */
 
+/* Accueil : colonne pleine hauteur, hero + footer sans scroll */
+body[data-title-key="title.home"] {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+body[data-title-key="title.home"] main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .hero {
   position: relative;
-  min-height: 100svh;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3rem;
-  padding: 4rem 1.5rem;
+  gap: clamp(1.4rem, 4vh, 3rem);
+  padding: 2rem 1.5rem;
   overflow: hidden;
 }
 
@@ -162,14 +174,14 @@ svg { display: block; }
 }
 
 .monogram {
-  width: clamp(220px, 38vh, 430px);
+  width: clamp(200px, 34vh, 400px);
   height: auto;
   overflow: visible;
 }
 
 .wordmark {
-  margin-top: 2.6rem;
-  font-size: clamp(3.4rem, 11vw, 6.6rem);
+  margin-top: clamp(1.2rem, 3vh, 2.4rem);
+  font-size: clamp(3.2rem, 10vw, 6rem);
   font-weight: 600;
   letter-spacing: 0.005em;
   line-height: 1;
@@ -178,7 +190,7 @@ svg { display: block; }
 }
 
 .paris {
-  margin-top: 1.2rem;
+  margin-top: clamp(0.6rem, 1.5vh, 1.2rem);
   font-family: var(--font-body);
   font-weight: 500;
   font-size: clamp(1rem, 2.6vw, 1.35rem);
@@ -296,7 +308,7 @@ body.play .works { animation: worksIn 0.9s var(--ease-out) 3.05s both; }
     position: static;
     transform: none;
     width: min(420px, 100%);
-    margin-top: 3rem;
+    margin-top: clamp(1.25rem, 3vh, 3rem);
   }
   body.play .works { animation-name: fadeUp; }
 }
