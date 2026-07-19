@@ -223,11 +223,23 @@ body[data-title-key="title.home"] main {
   transform: translateY(-50%);
   width: 250px;
   display: grid;
-  gap: 0.9rem;
+  gap: 1.5rem;
   z-index: 40;
+  /* deux groupes tiennent moins bien qu'un : on borne au viewport
+     et on laisse defiler plutot que deborder derriere le footer. */
+  max-height: calc(100vh - 5rem);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.works::-webkit-scrollbar { display: none; }
+
+.works-group {
+  display: grid;
+  gap: 0.9rem;
 }
 
 .works-title {
+  margin: 0;                     /* reset du h2 */
   font-family: var(--font-mono);
   font-size: 0.66rem;
   font-weight: 500;
@@ -285,8 +297,29 @@ body[data-title-key="title.home"] main {
 .work-icon-accent { fill: var(--accent); }
 
 .work-text { display: grid; gap: 0.1rem; min-width: 0; }
-.work-name { font-weight: 600; font-size: 0.98rem; }
+.work-name {
+  font-weight: 600;
+  font-size: 0.98rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
 .work-sub { color: var(--grey); font-size: 0.82rem; }
+
+/* Pastille d'etat (Brick Rogue : test ferme) */
+.work-badge {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.1rem 0.4rem;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
 
 .work-arrow {
   margin-left: auto;
@@ -309,6 +342,9 @@ body.play .works { animation: worksIn 0.9s var(--ease-out) 3.05s both; }
     transform: none;
     width: min(420px, 100%);
     margin-top: clamp(1.25rem, 3vh, 3rem);
+    /* panneau dans le flux : c'est la page qui defile, pas le panneau */
+    max-height: none;
+    overflow-y: visible;
   }
   body.play .works { animation-name: fadeUp; }
 }
