@@ -20,6 +20,42 @@
 
   <link rel="stylesheet" href="styles.css">
   <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+
+  <!-- Donnees structurees : aide Google a traiter "nodusing" comme une entite
+       distincte de "nod" / "nodus", qui dominent les resultats sur ce nom. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://nodusing.paris/#organization",
+        "name": "nodusing",
+        "alternateName": "nodusing Paris",
+        "url": "https://nodusing.paris/",
+        "email": "contact@nodusing.paris",
+        "description": "nodusing conçoit des applications web, mobiles et SaaS sur mesure pour les entreprises et commerces.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Paris",
+          "addressCountry": "FR"
+        },
+        "areaServed": {
+          "@type": "Place",
+          "name": "Paris, France"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://nodusing.paris/#website",
+        "url": "https://nodusing.paris/",
+        "name": "nodusing Paris",
+        "inLanguage": "fr-FR",
+        "publisher": { "@id": "https://nodusing.paris/#organization" }
+      }
+    ]
+  }
+  </script>
 </head>
 <body data-title-key="title.home">
 

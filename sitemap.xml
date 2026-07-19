@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Pages reelles uniquement. /beta, /get et /logik sont des redirections (voir _redirects) : hors sitemap. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://nodusing.paris/</loc>
+    <lastmod>2026-07-19</lastmod>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://nodusing.paris/contact.html</loc>
+    <lastmod>2026-07-09</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://nodusing.paris/jeu.html</loc>
+    <lastmod>2026-07-09</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://nodusing.paris/brickrogue-confidentialite.html</loc>
+    <lastmod>2026-07-14</lastmod>
+    <priority>0.3</priority>
+  </url>
+</urlset>
