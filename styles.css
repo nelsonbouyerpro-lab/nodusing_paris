@@ -760,6 +760,11 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 }
 
 /* Captures : rail horizontal sur mobile, grille des 4 sur large. */
+.shots, .brick-points {
+  list-style: none;   /* pas de reset global d'UL dans cette feuille */
+  padding-left: 0;
+}
+
 .shots {
   display: grid;
   grid-auto-flow: column;

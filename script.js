@@ -206,10 +206,16 @@
     document.querySelectorAll("[data-i18n-alt]").forEach(function (el) {
       el.setAttribute("alt", t(el.getAttribute("data-i18n-alt")));
     });
-    // captures Brick Rogue : l'interface du jeu est elle-meme traduite,
+    // Captures Brick Rogue : l'interface du jeu est elle-meme traduite,
     // on sert donc le jeu de captures de la langue courante.
+    // Le HTML code le francais en dur (crawlers, sans-JS) ; on precharge
+    // avant de permuter, sinon l'image se vide le temps du telechargement.
     document.querySelectorAll("[data-shot]").forEach(function (el) {
-      el.setAttribute("src", "assets/brickrogue/" + el.getAttribute("data-shot") + "-" + lang + ".webp");
+      var next = "assets/brickrogue/" + el.getAttribute("data-shot") + "-" + lang + ".webp";
+      if (el.getAttribute("src") === next) return;
+      var pre = new Image();
+      pre.onload = function () { el.setAttribute("src", next); };
+      pre.src = next;   // en cas d'echec on garde l'image en place
     });
     var titleKey = document.body.getAttribute("data-title-key");
     if (titleKey) document.title = t(titleKey);
