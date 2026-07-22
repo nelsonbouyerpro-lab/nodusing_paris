@@ -59,6 +59,32 @@
       "works.brick": "Brick Rogue",
       "works.brick.sub": "Le roguelite calme, hors ligne",
       "works.beta": "Bêta",
+      "title.brick": "Brick Rogue — puzzle roguelite | nodusing Paris",
+      "brick.eyebrow": "Application mobile",
+      "brick.h1": "Le moule se souvient de vous<span class=\"pt\">.</span>",
+      "brick.sub": "Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.",
+      "brick.cta": "Rejoindre la bêta",
+      "brick.cta.note": "Test fermé sur Google&nbsp;Play — l'accès est ouvert à tous.",
+      "brick.shots": "En images",
+      "brick.shot1": "Le Moule du jour — le même pour tout le monde.",
+      "brick.shot2": "L'Ascension — choisissez votre chemin.",
+      "brick.shot3": "L'Établi — votre Grand Sceau se grave.",
+      "brick.shot4": "Le Reliquaire — en écus gagnés, jamais en argent réel.",
+      "brick.shot1.alt": "Le Moule du jour : des pièces colorées à glisser dans un moule vide.",
+      "brick.shot2.alt": "La Planche : un arbre de nœuds reliés menant au Sceau majeur.",
+      "brick.shot3.alt": "L'Établi du graveur : le Grand Sceau, les rituels du jour et de la semaine.",
+      "brick.shot4.alt": "Le Reliquaire : des coffrets de reliques achetables en écus gagnés en jouant.",
+      "brick.why": "Ce qui le distingue",
+      "brick.p1.t": "Skill pur",
+      "brick.p1.d": "Pas de vies, pas de minuteur, aucun achat d'avantage.",
+      "brick.p2.t": "Hors ligne",
+      "brick.p2.d": "Jouable partout, aucune donnée collectée par le studio.",
+      "brick.p3.t": "Respectueux",
+      "brick.p3.d": "Aucune publicité ; les seuls achats sont cosmétiques.",
+      "brick.p4.t": "Pensé pour tous",
+      "brick.p4.d": "Palette daltonienne, lecteur d'écran, texte ×2, jouable au pouce.",
+      "brick.note": "Développé à Paris par nodusing.",
+      "brick.privacy": "Politique de confidentialité",
       "title.game": "Le Nœud — démo technique | nodusing Paris",
       "game.eyebrow": "Démo technique",
       "game.h2": "Démêlez le réseau<span class=\"pt\">.</span>",
@@ -107,6 +133,32 @@
       "works.brick": "Brick Rogue",
       "works.brick.sub": "The calm offline roguelite",
       "works.beta": "Beta",
+      "title.brick": "Brick Rogue — roguelite puzzle | nodusing Paris",
+      "brick.eyebrow": "Mobile app",
+      "brick.h1": "The mould remembers you<span class=\"pt\">.</span>",
+      "brick.sub": "A calm, tactile roguelite puzzle. Slide pieces into the mould, tap to rotate, fill it without a single gap. You never lose here — you aim for beauty.",
+      "brick.cta": "Join the beta",
+      "brick.cta.note": "Closed testing on Google&nbsp;Play — open to everyone.",
+      "brick.shots": "In pictures",
+      "brick.shot1": "The Daily Mould — the same for everyone.",
+      "brick.shot2": "The Ascension — pick your path.",
+      "brick.shot3": "The Workbench — your Great Seal takes shape.",
+      "brick.shot4": "The Reliquary — earned coins only, never real money.",
+      "brick.shot1.alt": "The Daily Mould: colourful pieces waiting to be slid into an empty mould.",
+      "brick.shot2.alt": "The Board: a tree of linked nodes leading to the Major Seal.",
+      "brick.shot3.alt": "The engraver's Workbench: the Great Seal, the daily and weekly rituals.",
+      "brick.shot4.alt": "The Reliquary: relic boxes bought with coins earned by playing.",
+      "brick.why": "What sets it apart",
+      "brick.p1.t": "Pure skill",
+      "brick.p1.d": "No lives, no timer, no paid advantages, ever.",
+      "brick.p2.t": "Offline",
+      "brick.p2.d": "Playable anywhere; the studio collects no data.",
+      "brick.p3.t": "Respectful",
+      "brick.p3.d": "No ads; the only purchases are cosmetic.",
+      "brick.p4.t": "For everyone",
+      "brick.p4.d": "Colour-blind palette, screen-reader support, 2× text, one-thumb play.",
+      "brick.note": "Built in Paris by nodusing.",
+      "brick.privacy": "Privacy policy",
       "title.game": "The Knot — tech demo | nodusing Paris",
       "game.eyebrow": "Tech demo",
       "game.h2": "Untangle the network<span class=\"pt\">.</span>",
@@ -150,6 +202,14 @@
     });
     document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
       el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+    });
+    document.querySelectorAll("[data-i18n-alt]").forEach(function (el) {
+      el.setAttribute("alt", t(el.getAttribute("data-i18n-alt")));
+    });
+    // captures Brick Rogue : l'interface du jeu est elle-meme traduite,
+    // on sert donc le jeu de captures de la langue courante.
+    document.querySelectorAll("[data-shot]").forEach(function (el) {
+      el.setAttribute("src", "assets/brickrogue/" + el.getAttribute("data-shot") + "-" + lang + ".webp");
     });
     var titleKey = document.body.getAttribute("data-title-key");
     if (titleKey) document.title = t(titleKey);

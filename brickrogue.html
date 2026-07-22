@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brick Rogue — puzzle roguelite | nodusing Paris</title>
+  <meta name="description" content="Brick Rogue : un puzzle roguelite calme et tactile. Remplissez le moule sans un trou, gravez votre Grand Sceau. Sans vies, sans minuteur, sans publicité — une application nodusing Paris.">
+  <meta property="og:title" content="Brick Rogue — puzzle roguelite | nodusing Paris">
+  <meta property="og:description" content="Le roguelite calme, hors ligne. Remplissez, gravez : le moule se souvient de vous.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:url" content="https://nodusing.paris/brickrogue.html">
+  <meta property="og:image" content="https://nodusing.paris/assets/brickrogue/daily-fr.webp">
+  <link rel="canonical" href="https://nodusing.paris/brickrogue.html">
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B1220'/%3E%3Cpath d='M20 47 V17 L44 47 V17' fill='none' stroke='%23F5F7FA' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='17' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='20' cy='47' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='44' cy='17' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='44' cy='47' r='6' fill='%235B7CFF'/%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+
+  <!-- Fiche applicative : aide Google a rattacher le jeu au studio. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MobileApplication",
+    "name": "Brick Rogue",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "Android, iOS",
+    "inLanguage": ["fr-FR", "en"],
+    "url": "https://nodusing.paris/brickrogue.html",
+    "description": "Un puzzle roguelite calme et tactile : remplissez le moule sans un trou, gravez votre Grand Sceau. Sans vies, sans minuteur, sans publicité.",
+    "privacyPolicy": "https://nodusing.paris/brickrogue-confidentialite.html",
+    "author": { "@id": "https://nodusing.paris/#organization" },
+    "publisher": { "@id": "https://nodusing.paris/#organization" }
+  }
+  </script>
+</head>
+<body data-title-key="title.brick">
+
+  <div class="top-controls">
+    <button id="themeToggle" class="ctrl-btn" type="button" aria-label="Passer en mode sombre">
+      <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5 A8.5 8.5 0 1 1 9.5 4 A7 7 0 0 0 20 14.5 Z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <button id="langToggle" class="ctrl-btn ctrl-lang" type="button" aria-label="Switch to English">EN</button>
+  </div>
+
+  <header class="site-header">
+    <a href="index.html" class="brand" aria-label="nodusing Paris — retour à l'accueil">
+      <svg class="themed-logo" viewBox="0 0 140 170" width="26" height="32" aria-hidden="true">
+        <path d="M26 143 V27 L114 143 V27" fill="none" stroke="#12161D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="26" cy="27" r="10" fill="#12161D"/>
+        <circle cx="26" cy="143" r="10" fill="#12161D"/>
+        <circle cx="114" cy="27" r="10" fill="#12161D"/>
+        <circle cx="114" cy="143" r="13" fill="#002FA7"/>
+      </svg>
+      <span class="brand-text">
+        <span class="brand-name">nodusing</span>
+        <span class="brand-city">PARIS</span>
+      </span>
+    </a>
+  </header>
+
+  <main class="game-main">
+    <section class="game">
+
+      <img class="app-icon" src="assets/brickrogue-icon.png" width="72" height="72"
+           alt="" aria-hidden="true" decoding="async">
+
+      <p class="eyebrow">
+        <span data-i18n="brick.eyebrow">Application mobile</span>
+        <span class="work-badge" data-i18n="works.beta">Bêta</span>
+      </p>
+
+      <h1 data-i18n="brick.h1">Le moule se souvient de vous<span class="pt">.</span></h1>
+      <p class="game-sub" data-i18n="brick.sub">Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.</p>
+
+      <div class="game-actions">
+        <!-- /beta = opt-in du test ferme. La fiche Play publique n'existe pas
+             encore ; basculer sur /get (et retirer le badge) a la publication. -->
+        <a href="/beta" class="btn" data-i18n="brick.cta">Rejoindre la bêta</a>
+      </div>
+      <p class="brick-cta-note" data-i18n="brick.cta.note">Test fermé sur Google&nbsp;Play — l'accès est ouvert à tous.</p>
+
+      <!-- ── Captures ── -->
+      <h2 class="brick-h2" data-i18n="brick.shots">En images</h2>
+      <ul class="shots" role="list">
+        <li class="shot">
+          <img src="assets/brickrogue/daily-fr.webp" width="540" height="1080"
+               alt="Le Moule du jour : des pièces colorées à glisser dans un moule vide."
+               data-shot="daily" data-i18n-alt="brick.shot1.alt" loading="lazy" decoding="async">
+          <p class="shot-cap" data-i18n="brick.shot1">Le Moule du jour — le même pour tout le monde.</p>
+        </li>
+        <li class="shot">
+          <img src="assets/brickrogue/planche-fr.webp" width="540" height="1080"
+               alt="La Planche : un arbre de nœuds reliés menant au Sceau majeur."
+               data-shot="planche" data-i18n-alt="brick.shot2.alt" loading="lazy" decoding="async">
+          <p class="shot-cap" data-i18n="brick.shot2">L'Ascension — choisissez votre chemin.</p>
+        </li>
+        <li class="shot">
+          <img src="assets/brickrogue/etabli-fr.webp" width="540" height="1080"
+               alt="L'Établi du graveur : le Grand Sceau, les rituels du jour et de la semaine."
+               data-shot="etabli" data-i18n-alt="brick.shot3.alt" loading="lazy" decoding="async">
+          <p class="shot-cap" data-i18n="brick.shot3">L'Établi — votre Grand Sceau se grave.</p>
+        </li>
+        <li class="shot">
+          <img src="assets/brickrogue/reliquaire-fr.webp" width="540" height="1080"
+               alt="Le Reliquaire : des coffrets de reliques achetables en écus gagnés en jouant."
+               data-shot="reliquaire" data-i18n-alt="brick.shot4.alt" loading="lazy" decoding="async">
+          <p class="shot-cap" data-i18n="brick.shot4">Le Reliquaire — en écus gagnés, jamais en argent réel.</p>
+        </li>
+      </ul>
+
+      <!-- ── Ce qui le distingue ── -->
+      <h2 class="brick-h2" data-i18n="brick.why">Ce qui le distingue</h2>
+      <ul class="brick-points" role="list">
+        <li><strong data-i18n="brick.p1.t">Skill pur</strong><span data-i18n="brick.p1.d">Pas de vies, pas de minuteur, aucun achat d'avantage.</span></li>
+        <li><strong data-i18n="brick.p2.t">Hors ligne</strong><span data-i18n="brick.p2.d">Jouable partout, aucune donnée collectée par le studio.</span></li>
+        <li><strong data-i18n="brick.p3.t">Respectueux</strong><span data-i18n="brick.p3.d">Aucune publicité ; les seuls achats sont cosmétiques.</span></li>
+        <li><strong data-i18n="brick.p4.t">Pensé pour tous</strong><span data-i18n="brick.p4.d">Palette daltonienne, lecteur d'écran, texte ×2, jouable au pouce.</span></li>
+      </ul>
+
+      <p class="game-note">
+        <span data-i18n="brick.note">Développé à Paris par nodusing.</span>
+        <a href="brickrogue-confidentialite.html" data-i18n="brick.privacy">Politique de confidentialité</a>
+      </p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>nodusing — Paris, France · <a href="mailto:contact@nodusing.paris" class="footer-mail">contact@nodusing.paris</a> · © <span id="year">2026</span></p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
