@@ -63,8 +63,9 @@
       "brick.eyebrow": "Application mobile",
       "brick.h1": "Le moule se souvient de vous<span class=\"pt\">.</span>",
       "brick.sub": "Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.",
-      "brick.cta": "Rejoindre la bêta",
-      "brick.cta.note": "Test fermé sur Google&nbsp;Play — l'accès est ouvert à tous.",
+      "brick.appstore.alt": "Télécharger dans l'App Store",
+      "brick.cta": "Bêta Android",
+      "brick.cta.note": "Sur Android&nbsp;: test fermé Google&nbsp;Play — l'accès est ouvert à tous.",
       "brick.shots": "En images",
       "brick.shot1": "Le Moule du jour — le même pour tout le monde.",
       "brick.shot2": "L'Ascension — choisissez votre chemin.",
@@ -137,8 +138,9 @@
       "brick.eyebrow": "Mobile app",
       "brick.h1": "The mould remembers you<span class=\"pt\">.</span>",
       "brick.sub": "A calm, tactile roguelite puzzle. Slide pieces into the mould, tap to rotate, fill it without a single gap. You never lose here — you aim for beauty.",
-      "brick.cta": "Join the beta",
-      "brick.cta.note": "Closed testing on Google&nbsp;Play — open to everyone.",
+      "brick.appstore.alt": "Download on the App Store",
+      "brick.cta": "Android beta",
+      "brick.cta.note": "On Android: closed testing on Google&nbsp;Play — open to everyone.",
       "brick.shots": "In pictures",
       "brick.shot1": "The Daily Mould — the same for everyone.",
       "brick.shot2": "The Ascension — pick your path.",
@@ -216,6 +218,10 @@
       var pre = new Image();
       pre.onload = function () { el.setAttribute("src", next); };
       pre.src = next;   // en cas d'echec on garde l'image en place
+    });
+    // Badge App Store : l'artwork officiel Apple existe par langue.
+    document.querySelectorAll("[data-badge]").forEach(function (el) {
+      el.setAttribute("src", "assets/badges/" + el.getAttribute("data-badge") + "-" + lang + ".svg");
     });
     var titleKey = document.body.getAttribute("data-title-key");
     if (titleKey) document.title = t(titleKey);

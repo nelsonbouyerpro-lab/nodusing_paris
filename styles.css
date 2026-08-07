@@ -688,8 +688,27 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
 .game-actions {
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.8rem;
   margin-top: 1.4rem;
+}
+
+/* Badge officiel « Télécharger dans l'App Store » (variante noire :
+   son liseré gris integre passe sur les deux themes). */
+.store-badge {
+  display: inline-flex;
+  border-radius: 9px; /* suit l'arrondi de l'artwork : ombre et focus epousent le badge */
+  transition: transform 250ms var(--ease-out), box-shadow 400ms var(--ease-out);
+}
+.store-badge img {
+  display: block;
+  height: 48px; /* meme gabarit que le .btn voisin */
+  width: auto;
+}
+.store-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.28);
 }
 
 .game-note {

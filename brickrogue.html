@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brick Rogue — puzzle roguelite | nodusing Paris</title>
-  <meta name="description" content="Brick Rogue : un puzzle roguelite calme et tactile. Remplissez le moule sans un trou, gravez votre Grand Sceau. Sans vies, sans minuteur, sans publicité — une application nodusing Paris.">
+  <meta name="description" content="Brick Rogue : un puzzle roguelite calme et tactile. Remplissez le moule sans un trou, gravez votre Grand Sceau. Sans vies, sans minuteur, sans publicité — une application nodusing Paris, disponible sur l'App Store.">
   <meta property="og:title" content="Brick Rogue — puzzle roguelite | nodusing Paris">
   <meta property="og:description" content="Le roguelite calme, hors ligne. Remplissez, gravez : le moule se souvient de vous.">
   <meta property="og:type" content="website">
@@ -12,6 +12,8 @@
   <meta property="og:url" content="https://nodusing.paris/brickrogue.html">
   <meta property="og:image" content="https://nodusing.paris/assets/brickrogue/daily-fr.webp">
   <link rel="canonical" href="https://nodusing.paris/brickrogue.html">
+  <!-- Bandeau natif Safari iOS : propose l'app aux visiteurs iPhone/iPad. -->
+  <meta name="apple-itunes-app" content="app-id=6790177483">
 
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B1220'/%3E%3Cpath d='M20 47 V17 L44 47 V17' fill='none' stroke='%23F5F7FA' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='17' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='20' cy='47' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='44' cy='17' r='4.5' fill='%23F5F7FA'/%3E%3Ccircle cx='44' cy='47' r='6' fill='%235B7CFF'/%3E%3C/svg%3E">
 
@@ -32,6 +34,7 @@
     "operatingSystem": "Android, iOS",
     "inLanguage": ["fr-FR", "en"],
     "url": "https://nodusing.paris/brickrogue.html",
+    "installUrl": "https://apps.apple.com/app/brick-rogue-packing-puzzle/id6790177483",
     "description": "Un puzzle roguelite calme et tactile : remplissez le moule sans un trou, gravez votre Grand Sceau. Sans vies, sans minuteur, sans publicité.",
     "privacyPolicy": "https://nodusing.paris/brickrogue-confidentialite.html",
     "author": { "@id": "https://nodusing.paris/#organization" },
@@ -73,18 +76,25 @@
 
       <p class="eyebrow">
         <span data-i18n="brick.eyebrow">Application mobile</span>
-        <span class="work-badge" data-i18n="works.beta">Bêta</span>
       </p>
 
       <h1 data-i18n="brick.h1">Le moule se souvient de vous<span class="pt">.</span></h1>
       <p class="game-sub" data-i18n="brick.sub">Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.</p>
 
       <div class="game-actions">
-        <!-- /beta = opt-in du test ferme. La fiche Play publique n'existe pas
-             encore ; basculer sur /get (et retirer le badge) a la publication. -->
-        <a href="/beta" class="btn" data-i18n="brick.cta">Rejoindre la bêta</a>
+        <!-- iOS : fiche App Store publique via /ios (cf. _redirects). L'artwork
+             est le badge officiel Apple, servi en local dans la langue courante
+             (permutation par script.js, voir [data-badge]).
+             Android : /beta = opt-in du test ferme. La fiche Play publique
+             n'existe pas encore ; basculer sur /get a sa publication. -->
+        <a href="/ios" class="store-badge">
+          <img src="assets/badges/app-store-fr.svg" width="152" height="48"
+               alt="Télécharger dans l'App Store" data-badge="app-store"
+               data-i18n-alt="brick.appstore.alt" decoding="async">
+        </a>
+        <a href="/beta" class="btn" data-i18n="brick.cta">Bêta Android</a>
       </div>
-      <p class="brick-cta-note" data-i18n="brick.cta.note">Test fermé sur Google&nbsp;Play — l'accès est ouvert à tous.</p>
+      <p class="brick-cta-note" data-i18n="brick.cta.note">Sur Android&nbsp;: test fermé Google&nbsp;Play — l'accès est ouvert à tous.</p>
 
       <!-- ── Captures ── -->
       <h2 class="brick-h2" data-i18n="brick.shots">En images</h2>
