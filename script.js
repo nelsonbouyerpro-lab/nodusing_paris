@@ -64,8 +64,8 @@
       "brick.h1": "Le moule se souvient de vous<span class=\"pt\">.</span>",
       "brick.sub": "Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.",
       "brick.appstore.alt": "Télécharger dans l'App Store",
-      "brick.cta": "Bêta Android",
-      "brick.cta.note": "Sur Android&nbsp;: test fermé Google&nbsp;Play — l'accès est ouvert à tous.",
+      "brick.gplay.alt": "Disponible sur Google Play",
+      "brick.cta.note": "Gratuit, sans publicité, jouable hors ligne.",
       "brick.shots": "En images",
       "brick.shot1": "Le Moule du jour — le même pour tout le monde.",
       "brick.shot2": "La Grande Ascension — choisissez votre chemin.",
@@ -139,8 +139,8 @@
       "brick.h1": "The mould remembers you<span class=\"pt\">.</span>",
       "brick.sub": "A calm, tactile roguelite puzzle. Slide pieces into the mould, tap to rotate, fill it without a single gap. You never lose here — you aim for beauty.",
       "brick.appstore.alt": "Download on the App Store",
-      "brick.cta": "Android beta",
-      "brick.cta.note": "On Android: closed testing on Google&nbsp;Play — open to everyone.",
+      "brick.gplay.alt": "Get it on Google Play",
+      "brick.cta.note": "Free, no ads, playable offline.",
       "brick.shots": "In pictures",
       "brick.shot1": "The Daily Mould — the same for everyone.",
       "brick.shot2": "The Great Ascension — pick your path.",
@@ -219,9 +219,12 @@
       pre.onload = function () { el.setAttribute("src", next); };
       pre.src = next;   // en cas d'echec on garde l'image en place
     });
-    // Badge App Store : l'artwork officiel Apple existe par langue.
+    // Badges des stores : les artworks officiels Apple et Google existent par
+    // langue. L'extension se lit sur le src en place (.svg chez Apple, .png
+    // chez Google) — seul le jeton de langue change.
     document.querySelectorAll("[data-badge]").forEach(function (el) {
-      el.setAttribute("src", "assets/badges/" + el.getAttribute("data-badge") + "-" + lang + ".svg");
+      var ext = el.getAttribute("src").split(".").pop();
+      el.setAttribute("src", "assets/badges/" + el.getAttribute("data-badge") + "-" + lang + "." + ext);
     });
     var titleKey = document.body.getAttribute("data-title-key");
     if (titleKey) document.title = t(titleKey);

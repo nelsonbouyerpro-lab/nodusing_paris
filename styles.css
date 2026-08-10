@@ -694,21 +694,35 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
   margin-top: 1.4rem;
 }
 
-/* Badge officiel « Télécharger dans l'App Store » (variante noire :
-   son liseré gris integre passe sur les deux themes). */
+/* Badges officiels des stores, servis a la MEME hauteur (Apple demande que
+   son badge ne soit jamais plus petit qu'un autre). L'artwork Apple porte
+   son propre liseré gris ; celui de Google est un aplat noir pur — d'ou la
+   hairline en theme sombre, sans quoi il se fondrait dans la Nuit #0B1220. */
 .store-badge {
   display: inline-flex;
-  border-radius: 9px; /* suit l'arrondi de l'artwork : ombre et focus epousent le badge */
+  border-radius: 9px; /* suit l'arrondi de l'artwork : l'ombre epouse le badge */
   transition: transform 250ms var(--ease-out), box-shadow 400ms var(--ease-out);
 }
 .store-badge img {
   display: block;
-  height: 48px; /* meme gabarit que le .btn voisin */
+  /* A 48 px les deux badges + la gouttiere font ~327 px : exactement la
+     largeur utile d'un ecran de 375. On les laisse respirer en dessous
+     plutot que de les faire passer a la ligne au pixel pres. */
+  height: clamp(38px, 11.5vw, 48px);
   width: auto;
 }
 .store-badge:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 36px rgba(0, 0, 0, 0.28);
+}
+/* rayon mesure sur l'artwork Google : 10,7 % de la hauteur, ~5 px a 48. */
+.store-badge-gplay { border-radius: 5px; }
+[data-theme="dark"] .store-badge-gplay {
+  box-shadow: 0 0 0 1px rgba(245, 247, 250, 0.22);
+}
+[data-theme="dark"] .store-badge-gplay:hover {
+  box-shadow: 0 0 0 1px rgba(245, 247, 250, 0.22),
+              0 10px 36px rgba(0, 0, 0, 0.45);
 }
 
 .game-note {

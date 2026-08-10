@@ -82,19 +82,25 @@
       <p class="game-sub" data-i18n="brick.sub">Un puzzle roguelite calme et tactile. Glissez des pièces dans le moule, pivotez d'une touche, remplissez sans un seul trou. Ici, on ne perd jamais — on fait plus beau.</p>
 
       <div class="game-actions">
-        <!-- iOS : fiche App Store publique via /ios (cf. _redirects). L'artwork
-             est le badge officiel Apple, servi en local dans la langue courante
-             (permutation par script.js, voir [data-badge]).
-             Android : /beta = opt-in du test ferme. La fiche Play publique
-             n'existe pas encore ; basculer sur /get a sa publication. -->
+        <!-- Les deux fiches publiques, via les liens de marque /ios et /get
+             (cf. _redirects). Artworks officiels Apple et Google servis en
+             local, permutes dans la langue courante par script.js (voir
+             [data-badge] : le nom de fichier porte la langue, l'extension
+             vient du src — .svg chez Apple, .png chez Google).
+             /beta (opt-in du test ferme) n'est plus lie : la redirection
+             reste en place pour les liens deja partages. -->
         <a href="/ios" class="store-badge">
           <img src="assets/badges/app-store-fr.svg" width="152" height="48"
                alt="Télécharger dans l'App Store" data-badge="app-store"
                data-i18n-alt="brick.appstore.alt" decoding="async">
         </a>
-        <a href="/beta" class="btn" data-i18n="brick.cta">Bêta Android</a>
+        <a href="/get" class="store-badge store-badge-gplay">
+          <img src="assets/badges/gplay-fr.png" width="162" height="48"
+               alt="Disponible sur Google Play" data-badge="gplay"
+               data-i18n-alt="brick.gplay.alt" decoding="async">
+        </a>
       </div>
-      <p class="brick-cta-note" data-i18n="brick.cta.note">Sur Android&nbsp;: test fermé Google&nbsp;Play — l'accès est ouvert à tous.</p>
+      <p class="brick-cta-note" data-i18n="brick.cta.note">Gratuit, sans publicité, jouable hors ligne.</p>
 
       <!-- ── Captures ── -->
       <h2 class="brick-h2" data-i18n="brick.shots">En images</h2>
