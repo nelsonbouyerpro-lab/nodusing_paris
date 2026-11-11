@@ -42,6 +42,8 @@ html.gl-world { background: var(--bg); }
 }
 .logo3d.dragging { cursor: grabbing; }
 .gl-logo .monogram { visibility: hidden; }   /* reste en place : il donne sa taille au canvas */
+/* le logo est le point de mire du voyage : on le veut grand */
+.gl-logo .monogram { width: clamp(210px, 38vh, 440px); }
 
 /* le nom et PARIS s'inclinent avec le N, sur deux plans en avant.
    L'épaisseur des lettres : une pile d'ombres portées dont le

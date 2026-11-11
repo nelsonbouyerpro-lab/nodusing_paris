@@ -55,6 +55,11 @@
     "uniform vec4 uPop;",          // apparition des 4 nœuds
     "uniform vec3 uTip;",          // la plume, puis la lumière qui reparcourt le tracé
     "uniform vec2 uRing;",         // avancement des deux ondes (hors 0–1 : éteintes)
+    "uniform vec3 uOrbitN[2];",    // normales des deux anneaux d'orbite
+    "uniform vec4 uPlanet[3];",    // planètes : centre + rayon
+    "uniform vec3 uHi;",           // mise en avant de chaque planète (survol de sa carte)
+    "uniform vec2 uStar;",         // où tombe l'étoile accent à l'écran
+    "uniform float uFlare, uSys;", // éclat de l'étoile · apparition du système
 
     "const vec2 Q0 = vec2(-0.44, -0.58);",
     "const vec2 Q1 = vec2(-0.44,  0.58);",
@@ -215,7 +220,7 @@
     "  c += env(reflect(-v, n), rough) * fr * specAo;",
 
     /* la pastille émet ; elle éclaire ce qui l'entoure, et la plume aussi, à son passage */
-    "  c += acc * lens * (1.2 - 0.5 * ra * ra) * mix(0.5, 0.6, uDark);",
+    "  c += acc * lens * (1.25 - 0.45 * ra * ra) * mix(0.5, 1.05, uDark);",
     "  vec3 la = vec3(Q2, -0.16 * sign(dot(nO, vec3(0.0, 0.0, -1.0)) + 1e-4)) - p;",
     "  float da = dot(la, la);",
     "  c += (albedo * mix(5.0, 1.0, uDark) + 0.02) * mix(vec3(0.05, 0.2, 1.0), vec3(0.25, 0.42, 1.0), uDark)",
@@ -230,6 +235,39 @@
     "vec3 tone(vec3 x) {",                                     // courbe filmique, puis gamma
     "  x = clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);",
     "  return pow(x, vec3(0.4545));",
+    "}",
+
+    /* un anneau d'orbite : un trait fin de lumière, à la distance R du
+       centre, dans le plan de normale n. Il passe devant le N, puis derrière. */
+    "float orbit(vec3 ro, vec3 rd, vec3 n, float R, float tHit, float px) {",
+    "  float dn = dot(rd, n);",
+    "  if (abs(dn) < 0.012) return 0.0;",
+    "  float t = -dot(ro, n) / dn;",
+    "  if (t < 0.0) return 0.0;",
+    "  vec3 c = normalize(ro + rd * t) * R;",                   // le point de l'anneau le plus proche du rayon
+    "  vec3 oc = c - ro;",
+    "  float tc = dot(oc, rd);",
+    "  if (tc > tHit) return 0.0;",                              // caché par le N
+    "  float d = length(oc - rd * tc), w = px * tc * 1.15;",
+    "  return (exp(-d * d / (w * w)) + exp(-d / (w * 8.0)) * 0.2) * mix(1.0, 0.38, smoothstep(-R, R, (uRot * c).z));",
+    "}",
+
+    /* une planète : une sphère exacte, éclairée par l'étoile accent et par la source principale */
+    "vec4 planet(vec3 ro, vec3 rd, vec3 rdV, vec4 P, vec3 colA, vec3 colB, float px, out float depth) {",
+    "  vec3 oc = P.xyz - ro;",
+    "  float tc = dot(oc, rd), d2 = dot(oc, oc) - tc * tc, r = P.w;",
+    "  depth = tc - r;",
+    "  float w = px * tc * 1.2, dist = sqrt(max(d2, 0.0));",
+    "  if (r < 1e-4 || dist > r + w) return vec4(0.0);",
+    "  float cov = 1.0 - smoothstep(r - w, r + w, dist);",
+    "  vec3 nO = normalize(ro + rd * (tc - sqrt(max(r * r - d2, 0.0))) - P.xyz);",
+    "  vec3 n = uRot * nO;",
+    "  float light = max(dot(nO, normalize(vec3(Q2, 0.0) - P.xyz)), 0.0) * mix(0.5, 1.0, uDark) * min(uPop.z, 1.0)",
+    "              + max(dot(n, KEY), 0.0) * 0.9;",
+    "  float band = smoothstep(0.15, 0.85, 0.5 + 0.5 * sin(n.y * 7.0 + sin(n.x * 3.0 + P.x * 9.0) * 0.7)) * 0.75;",   // des bandes douces, comme une géante gazeuse
+    "  vec3 c = mix(colA, colB, band) * (light + mix(0.25, 0.05, uDark));",
+    "  c += mix(colB, vec3(0.5, 0.7, 1.0), 0.5) * pow(1.0 - max(dot(n, -rdV), 0.0), 3.0) * mix(0.15, 0.55, uDark);",   // atmosphère
+    "  return vec4(tone(c), cov);",
     "}",
 
     "void main() {",
@@ -270,6 +308,26 @@
     "  glow += (exp(-d2 / 0.03) * 0.20 + exp(-d2 / 0.16) * 0.07) * mix(0.35, 1.0, uDark) * min(uPop.z, 1.0) * (tc < tHit ? 1.0 : 0.05);",
     "  oc = uTip - ro; tc = dot(oc, rd); d2 = dot(oc, oc) - tc * tc;",
     "  glow += (exp(-d2 / 0.004) * 0.4 + exp(-d2 / 0.0005) * 0.8) * uTipA * mix(0.3, 1.0, uDark) * (tc < tHit + 0.09 ? 1.0 : 0.1);",
+
+    /* le système : trois planètes sur deux anneaux d'orbite */
+    "  for (int i = 0; i < 3; i++) {",
+    "    vec3 ca = i == 0 ? vec3(0.02, 0.07, 0.45) : (i == 1 ? vec3(0.55, 0.22, 0.09) : vec3(0.30, 0.33, 0.40));",
+    "    vec3 cb = i == 0 ? vec3(0.45, 0.60, 1.00) : (i == 1 ? vec3(0.95, 0.72, 0.42) : vec3(0.85, 0.88, 0.95));",
+    "    float hi = i == 0 ? uHi.x : (i == 1 ? uHi.y : uHi.z);",
+    "    float pd;",
+    "    vec4 pl = planet(ro, rd, rdV, uPlanet[i], ca, cb, px, pd);",
+    "    vec4 pp = vec4(pl.rgb * pl.a, pl.a);",
+    "    if (pd < tHit) o = pp + o * (1.0 - pp.a); else o = o + pp * (1.0 - o.a);",
+    "    oc = uPlanet[i].xyz - ro; tc = dot(oc, rd); d2 = dot(oc, oc) - tc * tc;",
+    "    glow += exp(-d2 / (uPlanet[i].w * uPlanet[i].w * 7.0 + 1e-6)) * (0.07 + 0.55 * hi) * (tc < tHit ? 1.0 : 0.0) * uSys;",
+    "  }",
+    "  float rings = (orbit(ro, rd, uOrbitN[0], 0.98, tHit, px) + orbit(ro, rd, uOrbitN[1], 1.20, tHit, px) * 0.75) * uSys;",
+
+    /* l'étoile accent rayonne : un halo, et un éclat horizontal comme dans un objectif */
+    "  vec2 dS = uv - uStar;",
+    "  glow += (exp(-abs(dS.y) / 0.007) * exp(-abs(dS.x) / 0.55) * 0.7",
+    "         + exp(-abs(dS.x) / 0.005) * exp(-abs(dS.y) / 0.13) * 0.2",
+    "         + exp(-dot(dS, dS) / 0.012) * 0.28) * uFlare * uDark;",
     /* les ondes vivent dans le plan du N */
     "  if (abs(rd.z) > 1e-4) {",
     "    float tp = -ro.z / rd.z;",
@@ -290,7 +348,7 @@
        plafond, vu de chaque point du sol — plus dense sous les nœuds du
        bas), et la lumière que la pastille y dépose */
     "  float shd = 0.0, pool = 0.0;",
-    "  if (rdV.y < -0.02) {",
+    "  if (uDark < 0.5 && rdV.y < -0.02) {",                    // dans l'espace, pas de sol
     "    vec3 pf = vec3(0.0, 0.0, -3.2) + rdV * (FLOOR / rdV.y);",
     "    float reach = dot(pf.xz, pf.xz);",
     "    if (reach < 1.7) {",
@@ -313,6 +371,11 @@
     "  glow = clamp(glow, 0.0, 1.0);",
     "  vec4 g = vec4(mix(gcDay, gcNight, uDark) * glow, glow * (1.0 - uDark));",
     "  o = g + o * (1.0 - g.a);",
+    "  rings = clamp(rings, 0.0, 1.0) * mix(0.55, 0.9, uDark);",
+    "  vec4 rg = vec4(mix(vec3(0.07, 0.086, 0.114), vec3(0.62, 0.74, 1.0), uDark) * rings, rings * (1.0 - uDark));",
+    "  o = rg + o * (1.0 - rg.a);",
+    /* la nuit, une lueur derrière le logo le détache du ciel */
+    "  o.rgb += vec3(0.16, 0.30, 1.0) * exp(-dot(uv, uv) / 0.75) * 0.075 * uDark * (1.0 - o.a);",
     /* un grain imperceptible : les dégradés des lueurs ne font pas de bandes */
     "  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;",
     "  o.rgb += grain / 255.0 * step(0.004, max(o.a, glow));",
@@ -340,7 +403,8 @@
   }
   gl.useProgram(prog);
   var U = {};
-  ["uRes", "uRot", "uDark", "uProg", "uTipA", "uFade", "uBob", "uPop", "uTip", "uRing"].forEach(function (n) {
+  ["uRes", "uRot", "uDark", "uProg", "uTipA", "uFade", "uBob", "uPop", "uTip", "uRing",
+   "uOrbitN", "uPlanet", "uHi", "uStar", "uFlare", "uSys"].forEach(function (n) {
     U[n] = gl.getUniformLocation(prog, n);
   });
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
@@ -423,6 +487,33 @@
     return { x: A[0] + (B[0] - A[0]) * f, y: A[1] + (B[1] - A[1]) * f, prog: s + f };
   }
 
+  /* ── Le système : deux anneaux d'orbite et trois planètes ──
+     Les anneaux sont fixes par rapport à l'écran : le N tourne à
+     l'intérieur, comme dans un astrolabe. tilt les penche vers nous
+     (leur moitié proche passe devant le bas du N), slant les incline. */
+  var HALF = 0.3984;
+  var ORBITS = [{ r: 0.98, tilt: 24, slant: -14 }, { r: 1.20, tilt: 33, slant: 17 }].map(function (o) {
+    var ct = Math.cos(o.tilt * RAD), st = Math.sin(o.tilt * RAD), cs = Math.cos(o.slant * RAD), ss = Math.sin(o.slant * RAD);
+    var n = [-ss * ct, cs * ct, -st];
+    var ul = Math.hypot(n[0], n[1]);
+    var u = [n[1] / ul, -n[0] / ul, 0];
+    var v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
+    return { r: o.r, n: n, u: u, v: v };
+  });
+  /* une planète par réalisation, dans l'ordre des cartes : Logik, Brick Rogue, Le Nœud */
+  var PLANETS = [
+    { orbit: 0, speed: 0.115, at: 0.6, size: 0.056 },
+    { orbit: 1, speed: 0.078, at: 2.4, size: 0.066 },
+    { orbit: 1, speed: 0.078, at: 2.4 + Math.PI, size: 0.048 }
+  ];
+  var hi = [0, 0, 0], hiTarget = [0, 0, 0];
+  Array.prototype.forEach.call(document.querySelectorAll(".work-card"), function (card, i) {
+    if (i > 2) return;
+    ["pointerenter", "focus"].forEach(function (ev) { card.addEventListener(ev, function () { hiTarget[i] = 1; }); });
+    ["pointerleave", "blur"].forEach(function (ev) { card.addEventListener(ev, function () { hiTarget[i] = 0; }); });
+  });
+  var orbitN = new Float32Array(6), planets = new Float32Array(12);
+
   var visible = true;
   if ("IntersectionObserver" in window) {
     new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; }).observe(canvas);
@@ -480,9 +571,35 @@
     gl.uniform1f(U.uTipA, u > 0 && u < 1 ? Math.min(1, u / 0.06, (1 - u) / 0.1) : 0);
     gl.uniform2f(U.uRing, (tc - 1.51) / 1.1, (tc - 1.72) / 1.3);
 
+    /* le système : on ramène anneaux et planètes (fixes à l'écran) dans le repère du N */
+    var m = [c, s * sp, -s * cp, 0, cp, sp, s, -c * sp, c * cp];
+    var back = function (p) {                     // vue → objet : la transposée de la rotation
+      return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2], m[6] * p[0] + m[7] * p[1] + m[8] * p[2]];
+    };
+    var sys = clamp01((T - 2.5) / 1.8);
+    sys = sys * sys * (3 - 2 * sys);
+    ORBITS.forEach(function (o, i) { orbitN.set(back(o.n), i * 3); });
+    PLANETS.forEach(function (pl, i) {
+      var o = ORBITS[pl.orbit], a = T * pl.speed + pl.at;
+      var ca = Math.cos(a) * o.r, sa = Math.sin(a) * o.r;
+      hi[i] += (hiTarget[i] - hi[i]) * 0.1;
+      planets.set(back([ca * o.u[0] + sa * o.v[0], ca * o.u[1] + sa * o.v[1], ca * o.u[2] + sa * o.v[2]]), i * 4);
+      planets[i * 4 + 3] = pl.size * sys * (1 + hi[i] * 0.3);
+    });
+    gl.uniform3fv(U.uOrbitN, orbitN);
+    gl.uniform4fv(U.uPlanet, planets);
+    gl.uniform3f(U.uHi, hi[0], hi[1], hi[2]);
+    gl.uniform1f(U.uSys, sys);
+    /* l'étoile accent : sa place à l'écran, et son éclat (plein de face, nul de dos) */
+    var bob = Math.sin(T * 0.8) * 0.012 + 0.012;
+    var sx = m[0] * 0.44 + m[3] * -0.58, sy = m[1] * 0.44 + m[4] * -0.58 + bob, sz = m[2] * 0.44 + m[5] * -0.58;
+    gl.uniform2f(U.uStar, sx / ((3.2 + sz) * HALF), sy / ((3.2 + sz) * HALF));
+    var popA = first ? clamp01((T - POP_AT[2]) / POP_DUR[2]) : 1;
+    gl.uniform1f(U.uFlare, popA * Math.pow(Math.max(0, c), 2) * Math.max(0, cp) * (0.86 + 0.14 * Math.sin(T * 1.7)));
+
     gl.uniform2f(U.uRes, W, H);
     gl.uniform1f(U.uDark, dark);
-    gl.uniform1f(U.uBob, Math.sin(T * 0.8) * 0.012 + 0.012);
+    gl.uniform1f(U.uBob, bob);
     gl.uniform1f(U.uFade, clamp01(T / 0.5));
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);

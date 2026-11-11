@@ -245,10 +245,10 @@
     "attribute vec4 aI;",        // repli, phase de A, phase de B, graine
     "attribute vec2 aE;",        // extrémité (0 = A, 1 = B), côté (-1 / +1)
     VIEW,
-    "uniform float uLineW;",
+    "uniform float uLineW, uStretch;",          // uStretch < 1 : le trait est raccourci vers A (traînées)
     "varying float vAlpha, vT, vSide, vHalf, vCoc, vSeed;",
     "void main() {",
-    "  vec3 a = toView(aA, aI.x, aI.y), b = toView(aB, aI.x, aI.z);",
+    "  vec3 a = toView(aA, aI.x, aI.y), b = toView(mix(aA, aB, uStretch), aI.x, aI.z);",
     "  float za = max(a.z, 1.0), zb = max(b.z, 1.0);",
     "  vec2 sa = a.xy * uF / za * vec2(1.0 / uAspect, 1.0);",
     "  vec2 sb = b.xy * uF / zb * vec2(1.0 / uAspect, 1.0);",
@@ -470,7 +470,7 @@
 
   var F_REST = 1.732;            // 1 / tan(30°) : champ de 60°
   var F_WARP = 1.05;             // grand angle pendant la plongée
-  var DRIFT = 15;                // dérive lente vers l'avant, en unités par seconde
+  var CRUISE = 58;               // vitesse de croisière : on avance à travers le ciel, en unités par seconde
   var FOCUS = 1500, APERTURE = 3.2;
 
   /* arrivée : si l'on vient d'une autre page du site, on reprend le
@@ -633,7 +633,7 @@
     ptrGlow += (pointer.on - ptrGlow) * Math.min(1, dt * 5);
     scrollZ += (window.scrollY * 0.9 - scrollZ) * Math.min(1, dt * 6);
 
-    var speed = DRIFT, F = F_REST, fade = 1;
+    var speed = CRUISE * (CALM < 1 ? 0.4 : 1), F = F_REST, fade = 1;
     var intro = easeOut(time / 1.6);
     if (arriving) {
       /* on sort de la plongée : très vite, puis de moins en moins */
@@ -642,7 +642,10 @@
       F = mix(F_REST, F_WARP, k);
       fade = mix(1, 0.75, k);
     } else {
-      speed += 420 * (1 - intro);
+      /* première arrivée : on sort de vitesse-lumière, et on ralentit */
+      var k0 = Math.exp(-time * 2.4);
+      speed += 1700 * k0;
+      F = mix(F_REST, F_WARP, k0 * 0.6);
       fade = intro;
     }
     if (leaveAt) {
@@ -657,7 +660,7 @@
     placeClearing();
     cam.x = look.x * 80;
     cam.y = -look.y * 50;
-    cam.roll = Math.sin(time * 0.05) * 0.06;
+    cam.roll = Math.sin(time * 0.05) * 0.05 - look.x * 0.07;   // on s'incline dans les virages
     cam.yaw = look.x * 0.08;
     cam.pitch = look.y * 0.05;
     cam.F = F;
@@ -703,20 +706,21 @@
     attribs(lineBuf, 48, [3, 3, 4, 2]);
     setView(lineProg, fade);
     gl.uniform1f(lineProg.u.uLineW, 0.55 * dpr);
+    gl.uniform1f(lineProg.u.uStretch, 1);
     gl.uniform1f(lineProg.u.uGain, mix(0.34, 0.6, theme) * CALM);
     gl.uniform1f(lineProg.u.uPulse, mix(0.9, 1.5, theme) * CALM);
     gl.uniform3fv(lineProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
     gl.uniform3fv(lineProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
     gl.drawArrays(gl.TRIANGLES, 0, N_LINE_VERTS);
 
-    /* 3 bis · en plongée, les étoiles s'étirent en traînées */
-    if (warp > 0.01) {
-      attribs(streakBuf, 48, [3, 3, 4, 2]);
-      gl.uniform1f(lineProg.u.uLineW, 0.4 * dpr);
-      gl.uniform1f(lineProg.u.uGain, warp * mix(0.5, 0.75, theme));
-      gl.uniform1f(lineProg.u.uPulse, 0);
-      gl.drawArrays(gl.TRIANGLES, 0, N_STREAK_VERTS);
-    }
+    /* 3 bis · le filé des étoiles : court en croisière (on sent qu'on
+       avance), long en plongée entre deux pages */
+    attribs(streakBuf, 48, [3, 3, 4, 2]);
+    gl.uniform1f(lineProg.u.uLineW, 0.4 * dpr);
+    gl.uniform1f(lineProg.u.uStretch, Math.min(1, Math.max(0.05, speed / 2600)));
+    gl.uniform1f(lineProg.u.uGain, (0.22 + warp * 0.5) * mix(0.5, 0.8, theme) * mix(0.4, 1, CALM));
+    gl.uniform1f(lineProg.u.uPulse, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, N_STREAK_VERTS);
 
     /* 4 · les liens vers le curseur, et l'étoile filante */
     var linkVerts = buildLinks(), meteorVerts = buildMeteor(time);

@@ -8,7 +8,9 @@
 
   /* ── Thème clair / sombre ──
      L'attribut data-theme est posé sur <html> par le script
-     inline du <head> (anti-flash) ; ici on gère la bascule. */
+     inline du <head> (anti-flash) ; ici on gère la bascule.
+     Le site s'ouvre de nuit : c'est un voyage dans l'espace. Le choix
+     du visiteur est retenu sous la clé « ambiance ». */
   var themeToggle = document.getElementById("themeToggle");
 
   function currentTheme() {
@@ -19,7 +21,7 @@
     themeToggle.addEventListener("click", function () {
       var next = currentTheme() === "dark" ? "light" : "dark";
       document.documentElement.dataset.theme = next;
-      try { localStorage.setItem("theme", next); } catch (e) { /* stockage indisponible */ }
+      try { localStorage.setItem("ambiance", next); } catch (e) { /* stockage indisponible */ }
       updateControlLabels();
     });
   }

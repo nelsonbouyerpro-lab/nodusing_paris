@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||'light'}catch(e){}</script>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('ambiance')||'dark'}catch(e){}</script>
   <style>
     :root {
       --bg: #FAFAF8; --surface: #FFFFFF; --fg: #12161D; --grey: #5A6372;
@@ -385,7 +385,7 @@
       document.getElementById('themeToggle').addEventListener('click', function () {
         var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         root.setAttribute('data-theme', next);
-        try { localStorage.setItem('theme', next); } catch (e) {}
+        try { localStorage.setItem('ambiance', next); } catch (e) {}
       });
     })();
   </script>
