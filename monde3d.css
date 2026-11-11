@@ -65,7 +65,7 @@ html.gl-world { background: var(--bg); }
     calc(var(--ex, 0px) * 6) calc(var(--ey, 0px) * 6) 0 var(--side),
     calc(var(--ex, 0px) * 7) calc(var(--ey, 0px) * 7) 0 var(--side),
     calc(var(--ex, 0px) * 8) calc(var(--ey, 0px) * 8) 0 var(--side),
-    calc(var(--ex, 0px) * 22) calc(var(--ey, 0px) * 22 + 14px) 26px color-mix(in srgb, var(--accent) 14%, transparent);
+    calc(var(--ex, 0px) * 14) calc(var(--ey, 0px) * 14 + 16px) 24px rgba(4, 8, 20, 0.22);
 }
 .gl-logo .paris { --z: 78px; }
 
