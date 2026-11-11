@@ -409,95 +409,170 @@
 
   /* les planètes du voyage : une sphère dessinée dans son carré, avec
      un relief de bruit fractal, un terminateur doux et une atmosphère.
-     uKind : 0 océans, terres et nuages · 1 géante gazeuse dont les anneaux
-     portent son ombre (et elle la leur) · 2 lune de roche au relief éclairé */
+     uKind : 0 océans, terres, nuages (et leur ombre), villes côté nuit ·
+     1 géante gazeuse dont les anneaux portent son ombre (et elle la leur) ·
+     2 lune de roche criblée de cratères. L'éclairage est calculé en
+     lumière réelle, puis passé par une courbe filmique. */
   var PLANET_FS = [
     PRECISION,
-    "uniform vec2 uC; uniform float uR, uTime, uKind, uAlpha, uAdd;",
+    "uniform vec2 uC; uniform float uR, uTime, uKind, uAlpha, uAdd, uOct;",   // uOct : finesse du détail, selon la taille à l'écran
     "const vec3 L = vec3(-0.5496, 0.4996, 0.6695);",       // la lumière vient du logo-étoile, en haut à gauche
     "const vec3 RING_N = vec3(0.2197, 0.8987, 0.3795);",   // l'axe des anneaux de la géante
-    "float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }",
-    "float noise(vec3 x) {",
-    "  vec3 i = floor(x), f = fract(x);",
-    "  f = f * f * (3.0 - 2.0 * f);",
-    "  return mix(mix(mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),",
-    "             mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);",
+
+    /* ── bruit de gradient : plus net et plus naturel qu'un bruit de valeurs ── */
+    /* hachage sans trigonométrie : c'est lui qu'on appelle le plus, il doit rester léger */
+    "vec3 hash3(vec3 p) {",
+    "  p = fract(p * vec3(0.1031, 0.1030, 0.0973));",
+    "  p += dot(p, p.yxz + 33.33);",
+    "  return -1.0 + 2.0 * fract((p.xxy + p.yxx) * p.zyx);",
     "}",
-    "float fbm(vec3 p) {",                                  // le détail fin : cinq octaves
+    "float gnoise(vec3 p) {",
+    "  vec3 i = floor(p), f = fract(p);",
+    "  vec3 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);",
+    "  return mix(mix(mix(dot(hash3(i), f), dot(hash3(i + vec3(1.0, 0.0, 0.0)), f - vec3(1.0, 0.0, 0.0)), u.x),",
+    "                 mix(dot(hash3(i + vec3(0.0, 1.0, 0.0)), f - vec3(0.0, 1.0, 0.0)), dot(hash3(i + vec3(1.0, 1.0, 0.0)), f - vec3(1.0, 1.0, 0.0)), u.x), u.y),",
+    "             mix(mix(dot(hash3(i + vec3(0.0, 0.0, 1.0)), f - vec3(0.0, 0.0, 1.0)), dot(hash3(i + vec3(1.0, 0.0, 1.0)), f - vec3(1.0, 0.0, 1.0)), u.x),",
+    "                 mix(dot(hash3(i + vec3(0.0, 1.0, 1.0)), f - vec3(0.0, 1.0, 1.0)), dot(hash3(i + vec3(1.0, 1.0, 1.0)), f - vec3(1.0, 1.0, 1.0)), u.x), u.y), u.z);",
+    "}",
+    /* bruit fractal, centré sur 0 (≈ −0,6 … 0,6) ; moins d'octaves quand la planète est petite */
+    "float fbm(vec3 p) {",
     "  float v = 0.0, a = 0.5;",
-    "  for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.02 + 7.1; a *= 0.5; }",
+    "  for (int i = 0; i < 6; i++) {",
+    "    if (float(i) >= uOct) break;",
+    "    v += a * gnoise(p);",
+    "    p = p * 2.03 + vec3(1.7, 9.2, 4.1);",
+    "    a *= 0.5;",
+    "  }",
     "  return v;",
     "}",
-    "float fbm3(vec3 p) {",                                 // le relief : trois octaves suffisent
-    "  float v = 0.0, a = 0.5;",
-    "  for (int i = 0; i < 3; i++) { v += a * noise(p); p = p * 2.02 + 7.1; a *= 0.5; }",
-    "  return v;",
+    "float fbmLow(vec3 p) { return 0.5 * gnoise(p) + 0.25 * gnoise(p * 2.03 + 1.7) + 0.125 * gnoise(p * 4.1 + 9.2); }",
+    /* cellules : le vecteur vers le centre de cellule le plus proche (xyz) et sa distance (w) */
+    "vec4 cells(vec3 p) {",
+    "  vec3 i = floor(p), f = fract(p);",
+    "  vec4 r = vec4(0.0, 0.0, 0.0, 8.0);",
+    "  for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) {",
+    "    vec3 g = vec3(float(x), float(y), float(z));",
+    "    vec3 v = g + hash3(i + g) * 0.4 + 0.5 - f;",
+    "    float d = dot(v, v);",
+    "    if (d < r.w) r = vec4(v, d);",
+    "  }",
+    "  return vec4(r.xyz, sqrt(r.w));",
     "}",
-    /* du repère de l'écran à celui de la planète : un axe incliné, une rotation lente */
+    /* un cratère : une cuvette et son rempart. x : hauteur · y : pente (vers l'extérieur) */
+    "vec2 crater(float d, float radius) {",
+    "  float x = d / radius;",
+    "  float bowl = x < 0.8 ? -(1.0 - x * x / 0.64) : 0.0;",
+    "  float q = (x - 0.95) / 0.13, rim = 0.45 * exp(-q * q);",
+    "  float slope = (x < 0.8 ? 2.0 * x / 0.64 : 0.0) - rim * 2.0 * q / 0.13;",
+    "  return vec2(bowl + rim, slope / radius);",
+    "}",
+
+    /* du repère de l'écran à celui de la planète (axe incliné, rotation lente), et retour */
     "vec3 spin(vec3 n) {",
     "  vec3 s = vec3(n.x * 0.94 - n.y * 0.34, n.x * 0.34 + n.y * 0.94, n.z);",
     "  float a = uTime * 0.03, c = cos(a), d = sin(a);",
     "  return vec3(s.x * c + s.z * d, s.y, -s.x * d + s.z * c);",
     "}",
+    "vec3 unspin(vec3 s) {",
+    "  float a = uTime * 0.03, c = cos(a), d = sin(a);",
+    "  vec3 n = vec3(s.x * c - s.z * d, s.y, s.x * d + s.z * c);",
+    "  return vec3(n.x * 0.94 + n.y * 0.34, -n.x * 0.34 + n.y * 0.94, n.z);",
+    "}",
+    "vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }",        // couleur d'écran → lumière
     /* la matière des anneaux, selon la distance au centre : des sillons, une division sombre */
     "float ringDensity(float rho) {",
     "  float d = smoothstep(1.28, 1.34, rho) * (1.0 - smoothstep(2.02, 2.10, rho));",
     "  d *= 1.0 - smoothstep(1.62, 1.65, rho) * (1.0 - smoothstep(1.70, 1.73, rho)) * 0.9;",
-    "  return d * (0.45 + 0.55 * noise(vec3(rho * 46.0, 0.5, 0.5))) * (0.55 + 0.45 * smoothstep(1.30, 1.62, rho));",
+    "  return d * clamp(0.62 + 0.7 * gnoise(vec3(rho * 38.0, 0.5, 0.5)) + 0.3 * gnoise(vec3(rho * 130.0, 2.5, 0.5)), 0.0, 1.0)",
+    "           * (0.55 + 0.45 * smoothstep(1.30, 1.62, rho));",
     "}",
+    /* la couverture nuageuse du monde d'océans : des masses tordues par le vent */
+    "float clouds(vec3 s) {",
+    "  vec3 w = vec3(gnoise(s * 2.1 + 3.0), gnoise(s * 2.1 + 11.0), gnoise(s * 2.1 + 19.0));",
+    "  return smoothstep(0.10, 0.42, fbm(s * 2.9 + w * 0.85 + vec3(uTime * 0.008, 0.0, 0.0)) + 0.1);",
+    "}",
+    "vec3 tone(vec3 x) {",                                   // courbe filmique, puis retour en couleur d'écran
+    "  x = clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);",
+    "  return pow(x, vec3(0.4545));",
+    "}",
+
     "void main() {",
     "  vec2 q = (gl_FragCoord.xy - uC) / uR;",
     "  float r = length(q), aa = 1.5 / uR;",
-    "  vec3 atmo = uKind < 0.5 ? vec3(0.36, 0.60, 1.0) : (uKind < 1.5 ? vec3(1.0, 0.80, 0.58) : vec3(0.55, 0.62, 0.78));",
-    "  float air = uKind < 0.5 ? 1.0 : (uKind < 1.5 ? 0.5 : 0.1);",   // épaisseur d'atmosphère : la lune n'en a presque pas
+    "  vec3 atmo = uKind < 0.5 ? vec3(0.30, 0.55, 1.0) : (uKind < 1.5 ? vec3(1.0, 0.80, 0.58) : vec3(0.55, 0.62, 0.78));",
+    "  float air = uKind < 0.5 ? 1.0 : (uKind < 1.5 ? 0.45 : 0.0);",   // épaisseur d'atmosphère : la lune n'en a pas
     "  vec4 o = vec4(0.0);",
     "  if (r < 1.0) {",
     "    vec3 n = vec3(q, sqrt(max(1.0 - r * r, 0.0)));",
-    "    vec3 s = spin(n), nb = n, col;",
-    "    float gloss = 0.0;",
+    "    vec3 s = spin(n), nb = n, col, glowNight = vec3(0.0);",
+    "    float gloss = 0.0, shadowed = 1.0;",
     "    if (uKind < 0.5) {",
-    /* un monde d'océans : terres, glaces, nuages */
-    "      float h = fbm(s * 2.3 + 3.0) + 0.22 * fbm3(s * 7.0 + 1.0);",
-    "      float land = smoothstep(0.66, 0.71, h);",
-    "      vec3 sea = mix(vec3(0.010, 0.035, 0.150), vec3(0.020, 0.120, 0.340), smoothstep(0.40, 0.66, h));",
-    "      vec3 ground = mix(vec3(0.09, 0.19, 0.08), vec3(0.42, 0.35, 0.23), smoothstep(0.71, 0.88, h));",
+    /* ── un monde d'océans : côtes nettes, climats, glaces, nuages et leur ombre ── */
+    "      float h = fbm(s * 1.9 + 3.0);",
+    "      float land = smoothstep(0.035, 0.065, h);",
+    "      vec3 sea = mix(lin(vec3(0.02, 0.07, 0.24)), lin(vec3(0.05, 0.22, 0.44)), smoothstep(-0.25, 0.035, h));",
+    "      float dry = smoothstep(0.10, 0.34, h) * (1.0 - smoothstep(0.25, 0.6, abs(s.y)));",   // déserts aux latitudes chaudes
+    "      vec3 ground = mix(lin(vec3(0.14, 0.25, 0.11)), lin(vec3(0.56, 0.47, 0.31)), dry);",
+    "      ground = mix(ground, lin(vec3(0.36, 0.33, 0.30)), smoothstep(0.22, 0.42, h));",        // montagnes
     "      col = mix(sea, ground, land);",
-    "      col = mix(col, vec3(0.90, 0.93, 0.96), smoothstep(0.78, 0.9, abs(s.y) + (h - 0.6) * 0.25));",
-    "      float cloud = smoothstep(0.50, 0.72, fbm(s * 3.4 + vec3(uTime * 0.01, 0.0, 0.0) + 9.0) + 0.1 * fbm3(s * 12.0 + 2.0));",
-    "      col = mix(col, vec3(0.94, 0.96, 0.98), cloud * 0.92);",
+    "      col = mix(col, lin(vec3(0.92, 0.95, 0.98)), smoothstep(0.72, 0.86, abs(s.y) + h * 0.35));",   // glaces
+    "      float cloud = clouds(s);",
+    "      if (uOct > 4.5) shadowed = 1.0 - 0.55 * clouds(spin(normalize(n + L * 0.035))) * (1.0 - cloud);",   // l'ombre des nuages sur le sol
+    "      col = mix(col * shadowed, lin(vec3(0.90, 0.92, 0.95)), cloud * 0.92);",
     "      gloss = (1.0 - land) * (1.0 - cloud);",
+    /* côté nuit, les lumières des villes */
+    "      glowNight = vec3(1.0, 0.72, 0.38) * land * (1.0 - cloud) * smoothstep(0.26, 0.5, gnoise(s * 58.0))",
+    "                * (1.0 - smoothstep(0.55, 0.8, abs(s.y))) * 0.5;",
     "    } else if (uKind < 1.5) {",
-    /* une géante gazeuse : des bandes tourmentées, de fines stries, une tempête */
-    "      float turb = fbm(s * vec3(2.0, 7.0, 2.0) + 4.0);",
-    "      float t = s.y * 8.5 + turb * 1.9;",
-    "      col = mix(vec3(0.47, 0.30, 0.20), vec3(0.86, 0.74, 0.58), smoothstep(0.15, 0.85, sin(t) * 0.5 + 0.5));",
-    "      col = mix(col, vec3(0.94, 0.88, 0.78), smoothstep(0.6, 0.95, sin(t * 2.3 + 1.0) * 0.5 + 0.5) * 0.35);",
-    "      col *= 0.92 + 0.16 * noise(s * vec3(4.0, 46.0, 4.0));",
-    "      col = mix(col, vec3(0.70, 0.36, 0.22), smoothstep(0.20, 0.07, length((s - vec3(0.55, -0.30, 0.78)) * vec3(1.0, 2.3, 1.0))) * 0.75);",
+    /* ── une géante gazeuse : des bandes que le vent cisaille, une tempête, des pôles sombres ── */
+    "      float lat = s.y + 0.05 * fbm(s * vec3(1.6, 4.5, 1.6) + 4.0);",
+    "      if (uOct > 2.5) lat += 0.016 * fbm(s * vec3(5.0, 16.0, 5.0));",
+    "      float band = 0.5 + 0.5 * sin(lat * 21.0 + 2.2 * sin(lat * 6.5 + 1.0));",
+    "      col = mix(lin(vec3(0.50, 0.31, 0.20)), lin(vec3(0.88, 0.76, 0.60)), smoothstep(0.12, 0.88, band));",
+    "      col = mix(col, lin(vec3(0.95, 0.90, 0.80)), smoothstep(0.55, 0.95, 0.5 + 0.5 * sin(lat * 47.0 + 1.3)) * 0.4);",
+    "      if (uOct > 2.5) col *= 1.0 + 0.22 * fbm(s * vec3(6.0, 34.0, 6.0));",                    // fines stries
+    "      vec3 sp = (s - vec3(0.55, -0.30, 0.78)) * vec3(1.0, 2.3, 1.0);",
+    "      col = mix(col, lin(vec3(0.72, 0.34, 0.20)), smoothstep(0.21, 0.06, length(sp) + 0.03 * gnoise(s * 14.0)) * 0.8);",
+    "      col = mix(col, lin(vec3(0.34, 0.31, 0.33)), smoothstep(0.72, 0.98, abs(s.y)));",
     /* l'ombre des anneaux sur la planète */
     "      float tr = -dot(n, RING_N) / dot(L, RING_N);",
-    "      if (tr > 0.0) col *= 1.0 - 0.6 * ringDensity(length(n + L * tr));",
+    "      if (tr > 0.0) shadowed = 1.0 - 0.62 * ringDensity(length(n + L * tr));",
+    "      col *= shadowed;",
     "    } else {",
-    /* une lune de roche : le relief accroche la lumière */
-    "      float h = fbm(s * 3.4 + 1.7), fine = fbm3(s * 11.0 + 5.0);",
-    "      col = mix(vec3(0.19, 0.20, 0.23), vec3(0.60, 0.61, 0.64), smoothstep(0.30, 0.72, h)) * (0.82 + 0.36 * fine);",
-    "      vec3 t1 = normalize(cross(n, vec3(0.0, 1.0, 0.02))), t2 = cross(n, t1);",
-    "      float h0 = fbm3(s * 6.0 + 2.0);",
-    "      float hx = fbm3(spin(normalize(n + t1 * 0.012)) * 6.0 + 2.0), hy = fbm3(spin(normalize(n + t2 * 0.012)) * 6.0 + 2.0);",
-    "      nb = normalize(n - (t1 * (hx - h0) + t2 * (hy - h0)) * 9.0);",
+    /* ── une lune de roche : des mers sombres, et de vrais cratères qui prennent la lumière ── */
+    "      float mare = smoothstep(-0.02, 0.16, fbm(s * 1.7 + 1.7));",
+    "      col = mix(lin(vec3(0.30, 0.30, 0.32)), lin(vec3(0.70, 0.69, 0.68)), mare) * (1.0 + 0.5 * fbm(s * 9.0 + 5.0));",
+    "      vec4 big = uOct > 2.5 ? cells(s * 3.1 + 0.07 * fbm(s * 5.0)) : vec4(0.0, 1.0, 0.0, 1.0);",   // en plongée, pas de cratères : tout file
+    "      vec2 cb = crater(big.w, 0.40);",
+    "      vec3 tilt = unspin(big.xyz / max(big.w, 1e-3)) * cb.y * 0.06;",
+    "      float relief = cb.x;",
+    "      if (uOct > 3.5) {",
+    "        vec4 fine = cells(s * 8.3 + 2.0);",
+    "        vec2 cf = crater(fine.w, 0.34);",
+    "        tilt += unspin(fine.xyz / max(fine.w, 1e-3)) * cf.y * 0.04;",
+    "        relief += cf.x * 0.5;",
+    "      }",
+    "      nb = normalize(n + tilt - n * dot(tilt, n));",
+    "      col *= 1.0 + 0.22 * relief;",                                                           // remparts clairs, fonds sombres
     "    }",
-    /* un terminateur doux mais lisible ; la face nuit reste presque noire */
-    "    float lit = smoothstep(-0.08, 0.42, dot(nb, L));",
-    "    vec3 c = col * (lit * 1.08 + 0.012);",
-    "    c += vec3(1.0, 0.97, 0.90) * pow(max(reflect(-L, nb).z, 0.0), 70.0) * 0.6 * gloss * lit;",   // le soleil sur l'océan
-    /* l'atmosphère : elle se voit au limbe, du côté éclairé */
-    "    c = mix(c, atmo, pow(1.0 - n.z, 3.2) * air * (0.10 + 0.6 * lit));",
-    "    c += atmo * pow(1.0 - n.z, 7.0) * air * lit * 0.5;",
+    /* l'éclairage, en lumière réelle : un terminateur que l'atmosphère adoucit */
+    "    float wrap = 0.22 * air;",
+    "    float sun = max((dot(nb, L) + wrap) / (1.0 + wrap), 0.0);",
+    "    float day = smoothstep(-0.05, 0.25, dot(n, L));",
+    "    vec3 c = col * sun * 2.0;",
+    "    c += vec3(1.0, 0.96, 0.88) * pow(max(reflect(-L, nb).z, 0.0), 90.0) * 1.6 * gloss * day;",   // le soleil sur l'océan
+    "    c += glowNight * (1.0 - smoothstep(-0.12, 0.08, dot(n, L)));",
+    /* l'atmosphère : bleue au limbe, plus chaude le long du terminateur */
+    "    float limb = pow(1.0 - n.z, 3.0);",
+    "    vec3 sky = mix(vec3(1.0, 0.55, 0.30), lin(atmo), smoothstep(0.0, 0.5, dot(n, L)));",
+    "    c = mix(c, sky * 1.5, limb * air * (0.06 + 0.62 * day));",
+    "    c += lin(atmo) * pow(1.0 - n.z, 8.0) * air * day * 1.2;",
+    "    c = tone(c);",
     "    float cov = 1.0 - smoothstep(1.0 - aa, 1.0, r);",
     "    o = vec4(c * cov, cov);",
     "  }",
     /* le halo d'atmosphère, hors du disque, côté éclairé surtout */
-    "  float h = exp(-max(r - 1.0, 0.0) * 16.0) * (0.2 + 0.8 * smoothstep(-0.5, 0.6, dot(normalize(q + 1e-4), L.xy))) * 0.42 * air * step(r, 1.5);",
+    "  float h = exp(-max(r - 1.0, 0.0) * 17.0) * (0.15 + 0.85 * smoothstep(-0.5, 0.6, dot(normalize(q + 1e-4), L.xy))) * 0.45 * air * step(r, 1.5);",
     "  vec4 g = vec4(atmo * h, h * (1.0 - uAdd) * 0.6);",
     "  o = o + g * (1.0 - o.a);",
     /* les anneaux de la géante : un disque incliné, devant puis derrière
@@ -506,14 +581,16 @@
     "    float z = -(RING_N.x * q.x + RING_N.y * q.y) / RING_N.z;",
     "    vec3 p3 = vec3(q, z);",
     "    float rho = length(p3);",
-    "    float ring = ringDensity(rho) * 0.8;",
+    "    float ring = ringDensity(rho) * 0.82;",
     "    if (z < 0.0 && r < 1.0) ring = 0.0;",                         // la planète cache l'arrière
     "    float b = dot(p3, L), disc = b * b - (rho * rho - 1.0);",
     "    float shade = (b < 0.0 && disc > 0.0) ? smoothstep(0.0, 0.05, disc) : 0.0;",   // dans l'ombre de la planète
-    "    vec3 rc = vec3(0.80, 0.71, 0.58) * (0.75 + 0.25 * noise(vec3(rho * 90.0, 1.5, 0.5))) * (1.0 - 0.88 * shade);",
+    "    vec3 rc = tone(lin(vec3(0.80, 0.71, 0.58)) * (0.85 + 0.5 * gnoise(vec3(rho * 90.0, 1.5, 0.5))) * (1.0 - 0.9 * shade) * 1.7);",
     "    vec4 rg = vec4(rc * ring, ring);",
     "    o = rg + o * (1.0 - rg.a);",
     "  }",
+    /* un grain imperceptible : pas de bandes dans les dégradés */
+    "  o.rgb += (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0 * o.a;",
     "  gl_FragColor = o * uAlpha;",
     "}"
   ].join("\n");
@@ -627,8 +704,8 @@
     W = w; H = h;
     canvas.width = W;
     canvas.height = H;
-    nebW = Math.max(32, Math.round(canvas.clientWidth / 5));
-    nebH = Math.max(32, Math.round(canvas.clientHeight / 5));
+    nebW = Math.max(32, Math.round(canvas.clientWidth / 3));
+    nebH = Math.max(32, Math.round(canvas.clientHeight / 3));
     gl.bindTexture(gl.TEXTURE_2D, nebTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, nebW, nebH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, nebFbo);
@@ -743,6 +820,10 @@
       gl.uniform2f(planetProg.u.uC, x * dpr, y * dpr);
       gl.uniform1f(planetProg.u.uR, R * dpr);
       gl.uniform1f(planetProg.u.uKind, i);
+      /* finesse du détail : inutile de calculer ce qu'on ne peut pas voir
+         (petite au loin), ni pendant la plongée, où tout file */
+      var px = R * dpr;
+      gl.uniform1f(planetProg.u.uOct, zoom > 1.15 ? 2 : (px < 90 ? 3 : (px < 260 ? 4 : (px < 620 ? 5 : 6))));
       gl.uniform1f(planetProg.u.uAlpha, alpha);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
