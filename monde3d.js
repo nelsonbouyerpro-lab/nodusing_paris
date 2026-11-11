@@ -690,6 +690,10 @@
 
   /* ── Taille ; la nébuleuse a sa propre petite texture ── */
   var W = 0, H = 0, dpr = 1;
+  /* Garde-fou de fluidité : si la machine peine durablement, on rend le
+     ciel moins finement (jusqu'à moitié) et les planètes avec moins de
+     détail, plutôt que de laisser le voyage saccader. */
+  var fineness = 1, slowFrames = 0;
   var nebTex = gl.createTexture(), nebFbo = gl.createFramebuffer(), nebW = 0, nebH = 0, nebOk = false;
   gl.bindTexture(gl.TEXTURE_2D, nebTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -698,7 +702,7 @@
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dpr = Math.min(window.devicePixelRatio || 1, 2) * fineness;
     var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
     if (w === W && h === H) return;
     W = w; H = h;
@@ -823,7 +827,7 @@
       /* finesse du détail : inutile de calculer ce qu'on ne peut pas voir
          (petite au loin), ni pendant la plongée, où tout file */
       var px = R * dpr;
-      gl.uniform1f(planetProg.u.uOct, zoom > 1.15 ? 2 : (px < 90 ? 3 : (px < 260 ? 4 : (px < 620 ? 5 : 6))));
+      gl.uniform1f(planetProg.u.uOct, zoom > 1.15 ? 2 : Math.max(2, (px < 90 ? 3 : (px < 260 ? 4 : (px < 620 ? 5 : 6))) - (fineness < 0.7 ? 1 : 0)));
       gl.uniform1f(planetProg.u.uAlpha, alpha);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
@@ -1060,9 +1064,19 @@
 
   function frame(now) {
     requestAnimationFrame(frame);
-    var dt = Math.min(0.05, (now - last) / 1000);
+    var elapsed = now - last;
+    var dt = Math.min(0.05, elapsed / 1000);
     last = now;
     var time = (now - t0) / 1000;
+    /* les premières secondes (mise en route) et les retours d'onglet ne comptent pas */
+    if (time > 4 && elapsed < 500) {
+      slowFrames = elapsed > 30 ? slowFrames + 1 : Math.max(0, slowFrames - 2);
+      if (slowFrames > 50 && fineness > 0.5) {
+        fineness = Math.max(0.5, fineness * 0.8);
+        slowFrames = 0;
+        W = -1;                  // force un nouveau dimensionnement
+      }
+    }
     resize();
 
     theme += ((root.dataset.theme === "dark" ? 1 : 0) - theme) * Math.min(1, dt * 7);

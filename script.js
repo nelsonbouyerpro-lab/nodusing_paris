@@ -31,6 +31,11 @@
     fr: {
       "title.home": "nodusing Paris — Applications sur mesure",
       "title.contact": "Contact — nodusing Paris",
+      "title.404": "Page introuvable — nodusing Paris",
+      "e404.eyebrow": "Erreur 404",
+      "e404.h": "Perdu dans l'espace<span class=\"pt\">.</span>",
+      "e404.sub": "Cette page n'existe pas, ou plus. Le voyage reprend à l'accueil.",
+      "e404.back": "Retour à l'accueil",
       "cta": "Contactez-moi",
       "contact.h2": "Démarrons votre projet<span class=\"pt\">.</span>",
       "contact.sub": "Parlez-nous de votre idée — nous revenons vers vous sous 24&nbsp;heures.",
@@ -111,6 +116,11 @@
     en: {
       "title.home": "nodusing Paris — Custom applications",
       "title.contact": "Contact — nodusing Paris",
+      "title.404": "Page not found — nodusing Paris",
+      "e404.eyebrow": "Error 404",
+      "e404.h": "Lost in space<span class=\"pt\">.</span>",
+      "e404.sub": "This page doesn't exist, or no longer does. The journey resumes on the home page.",
+      "e404.back": "Back to home",
       "cta": "Contact me",
       "contact.h2": "Let's start your project<span class=\"pt\">.</span>",
       "contact.sub": "Tell us about your idea — we'll get back to you within 24&nbsp;hours.",
@@ -200,6 +210,9 @@
   }
 
   function updateControlLabels() {
+    /* la barre du navigateur mobile prend la couleur du fond */
+    var themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) themeColor.setAttribute("content", currentTheme() === "dark" ? "#0B1220" : "#FAFAF8");
     if (themeToggle) {
       themeToggle.setAttribute("aria-label", t(currentTheme() === "dark" ? "theme.toLight" : "theme.toDark"));
     }
