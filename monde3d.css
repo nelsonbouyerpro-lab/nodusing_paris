@@ -49,7 +49,8 @@ html.gl-world { background: var(--bg); }
 .gl-logo .hero-logo { perspective: 900px; }
 .gl-logo .wordmark,
 .gl-logo .paris {
-  --side: color-mix(in srgb, var(--fg) 42%, var(--bg));
+  /* la tranche des lettres tire vers le bleu, comme celle du monogramme */
+  --side: color-mix(in srgb, var(--accent) 62%, var(--fg));
   transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(var(--z, 0px));
   will-change: transform;
 }
