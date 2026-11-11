@@ -325,8 +325,8 @@
 
     /* l'étoile accent rayonne : un halo, et un éclat horizontal comme dans un objectif */
     "  vec2 dS = uv - uStar;",
-    "  glow += (exp(-abs(dS.y) / 0.007) * exp(-abs(dS.x) / 0.55) * 0.7",
-    "         + exp(-abs(dS.x) / 0.005) * exp(-abs(dS.y) / 0.13) * 0.2",
+    "  glow += (exp(-abs(dS.y) / 0.010) * exp(-dS.x * dS.x / 0.14) * 0.45",   // un éclat court, qui s'éteint de lui-même
+    "         + exp(-abs(dS.x) / 0.006) * exp(-dS.y * dS.y / 0.012) * 0.16",
     "         + exp(-dot(dS, dS) / 0.012) * 0.28) * uFlare * uDark;",
     /* les ondes vivent dans le plan du N */
     "  if (abs(rd.z) > 1e-4) {",
@@ -368,18 +368,26 @@
     "  pool = clamp(pool, 0.0, 0.6);",
     "  vec4 ground = vec4(mix(gcDay, vec3(0.25, 0.4, 1.0), uDark) * pool, shd + pool * (1.0 - uDark));",
     "  o = o + ground * (1.0 - o.a);",
-    "  glow = clamp(glow, 0.0, 1.0);",
+    /* tout ce qui est lumière s'éteint avant le bord du canvas : on ne
+       doit jamais deviner son rectangle sur le ciel */
+    "  float win = 1.0 - smoothstep(0.70, 0.97, max(abs(uv.x) * uRes.y / uRes.x, abs(uv.y)));",
+    "  glow = clamp(glow, 0.0, 1.0) * win;",
     "  vec4 g = vec4(mix(gcDay, gcNight, uDark) * glow, glow * (1.0 - uDark));",
     "  o = g + o * (1.0 - g.a);",
-    "  rings = clamp(rings, 0.0, 1.0) * mix(0.55, 0.9, uDark);",
+    "  rings = clamp(rings, 0.0, 1.0) * mix(0.55, 0.9, uDark) * win;",
     "  vec4 rg = vec4(mix(vec3(0.07, 0.086, 0.114), vec3(0.62, 0.74, 1.0), uDark) * rings, rings * (1.0 - uDark));",
     "  o = rg + o * (1.0 - rg.a);",
     /* la nuit, une lueur derrière le logo le détache du ciel */
-    "  o.rgb += vec3(0.16, 0.30, 1.0) * exp(-dot(uv, uv) / 0.75) * 0.075 * uDark * (1.0 - o.a);",
+    "  o.rgb += vec3(0.16, 0.30, 1.0) * exp(-dot(uv, uv) / 0.6) * 0.075 * uDark * (1.0 - o.a) * win;",
     /* un grain imperceptible : les dégradés des lueurs ne font pas de bandes */
     "  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;",
     "  o.rgb += grain / 255.0 * step(0.004, max(o.a, glow));",
-    "  gl_FragColor = max(o, 0.0) * uFade;",
+    /* la lumière ajoutée la nuit a une couleur sans opacité : on lui en
+       donne une (celle de sa composante la plus forte), sans quoi
+       certains navigateurs l'affichent mal sur fond sombre */
+    "  o = max(o, 0.0);",
+    "  o.a = clamp(max(o.a, max(o.r, max(o.g, o.b))), 0.0, 1.0);",
+    "  gl_FragColor = o * uFade;",
     "}"
   ].join("\n");
 
