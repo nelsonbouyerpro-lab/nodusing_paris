@@ -247,6 +247,51 @@ html.gl-world { background: var(--bg); }
   transition: opacity 700ms ease-out, transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── Le curseur-nœud (posé par monde3d.js, souris seulement) ── */
+
+.cursor-node {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 300;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+.cursor-node::before {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  opacity: 0.55;
+  transition: transform 300ms var(--ease-out, ease-out), opacity 300ms ease-out,
+              background-color 300ms ease-out;
+}
+.cursor-node.on { opacity: 1; }
+.cursor-node.over::before {
+  transform: scale(1.7);
+  opacity: 0.9;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.cursor-node.typing::before { transform: scale(0.3); opacity: 0; }   /* on n'encombre pas la saisie */
+.ui-3d.leaving .cursor-node { opacity: 0; }
+
+/* ── Les petits logos : l'étoile accent scintille ── */
+
+.ui-3d .themed-logo circle:last-of-type,
+.ui-3d .mono-accent {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: starPulse 3.4s ease-in-out infinite;
+}
+@keyframes starPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.22); }
+}
+
 /* ── Sortie de page : tout part vers l'avant pendant la plongée ── */
 
 .ui-3d.leaving .hero-logo,

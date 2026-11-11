@@ -59,15 +59,16 @@
 
   var starData = [];            // x, y, z, repli, taille, sorte, phase
   var lineData = [];            // voir LINE_VS
+  var streakData = [];          // traînées des étoiles pendant la plongée (même format)
   var figures = [];             // étoiles des constellations, pour les liens vers le curseur
 
   function pushStar(x, y, z, mid, size, kind, phase) {
     starData.push(x, y, z, mid, size, kind, phase);
   }
   /* un lien = un quadrilatère (6 sommets) étiré entre deux étoiles */
-  function pushLine(a, b, mid, seed) {
+  function pushLine(a, b, mid, seed, into) {
     [[0, -1], [0, 1], [1, -1], [1, -1], [0, 1], [1, 1]].forEach(function (c) {
-      lineData.push(a.x, a.y, a.z, b.x, b.y, b.z, mid, a.phase, b.phase, seed, c[0], c[1]);
+      (into || lineData).push(a.x, a.y, a.z, b.x, b.y, b.z, mid, a.phase, b.phase, seed, c[0], c[1]);
     });
   }
 
@@ -136,11 +137,14 @@
     var lo = R_IN * 0.55, hi = R_OUT * 1.5;
     var r = Math.sqrt(lo * lo + rand() * (hi * hi - lo * lo));
     var z = rand() * L;
-    pushStar(Math.cos(a) * r, Math.sin(a) * r, z, z, 1.1 + Math.pow(rand(), 3) * 3, 0, rand() * TAU);
+    var dust = { x: Math.cos(a) * r, y: Math.sin(a) * r, z: z, phase: rand() * TAU };
+    pushStar(dust.x, dust.y, z, z, 1.1 + Math.pow(rand(), 3) * 3, 0, dust.phase);
+    /* une étoile sur deux laisse une traînée quand la caméra plonge */
+    if (i % 2 === 0) pushLine(dust, { x: dust.x, y: dust.y, z: z + 360, phase: dust.phase }, z, rand(), streakData);
   }
 
-  var stars = new Float32Array(starData), lines = new Float32Array(lineData);
-  var N_STARS = stars.length / 7, N_LINE_VERTS = lines.length / 12;
+  var stars = new Float32Array(starData), lines = new Float32Array(lineData), streaks = new Float32Array(streakData);
+  var N_STARS = stars.length / 7, N_LINE_VERTS = lines.length / 12, N_STREAK_VERTS = streaks.length / 12;
 
   /* ── Shaders ── */
   var PRECISION = [
@@ -172,7 +176,14 @@
     "}",
     "float fog(float z) { return smoothstep(" + FAR.toFixed(1) + ", " + (FAR * 0.45).toFixed(1) + ", z) * smoothstep(60.0, 320.0, z); }",
     /* flou de profondeur de champ, en pixels */
-    "float blur(float z) { return abs(1.0 / z - 1.0 / uFocus) * uAperture * uH; }"
+    "float blur(float z) { return abs(1.0 / z - 1.0 / uFocus) * uAperture * uH; }",
+    /* une clairière là où vit le contenu : le ciel s'y fait plus discret.
+       uClear = (force, centre x, centre y, rayon) ; uClearY = 1 : ronde, 0 : une colonne */
+    "uniform vec4 uClear; uniform float uClearY;",
+    "float clearing(vec2 ndc) {",
+    "  float d = length((ndc - uClear.yz) * vec2(uAspect, uClearY)) / uClear.w;",
+    "  return 1.0 - uClear.x * (1.0 - smoothstep(0.45, 1.1, d));",
+    "}"
   ].join("\n");
 
   var STAR_VS = [
@@ -197,7 +208,7 @@
     "  gl_Position = vec4(ndc, 0.0, 1.0);",
     "  if (p.z < 1.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);",      // derrière la caméra : hors champ
     "  float twinkle = 1.0 + 0.3 * sin(uTime * (1.1 + fract(aInfo.w * 7.3) * 2.4) + aInfo.w * 40.0);",
-    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3);",
+    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3) * clearing(ndc);",
     "  vSoft = clamp(coc / core, 0.0, 1.0);",
     "  vCore = core / (gl_PointSize * 0.5);",
     "  vKind = kind;",
@@ -252,7 +263,7 @@
     "  off.x /= uAspect;",
     "  gl_Position = vec4(mix(sa, sb, aE.x) + off, 0.0, 1.0);",
     "  vAlpha = fog(mix(a.z, b.z, aE.x)) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
-    "         * step(40.0, min(a.z, b.z));",
+    "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x));",
     "  vT = aE.x; vSide = aE.y; vHalf = halfW; vCoc = coc; vSeed = aI.w;",
     "}"
   ].join("\n");
@@ -283,10 +294,16 @@
   ].join("\n");
   var LINK_FS = [
     PRECISION,
-    "uniform vec3 uColA, uColP; uniform float uAdd, uTime;",
+    "uniform vec3 uColA, uColP; uniform float uAdd, uTime, uMeteor;",
     "varying vec3 vQ;",
     "void main() {",
     "  float edge = smoothstep(1.0, 0.3, abs(vQ.y));",
+    /* une étoile filante : une tête vive, une queue qui s'éteint */
+    "  if (uMeteor > 0.5) {",
+    "    float m = edge * vQ.z * vQ.x * vQ.x;",
+    "    gl_FragColor = vec4(mix(uColA, uColP, vQ.x) * m, m * (1.0 - uAdd));",
+    "    return;",
+    "  }",
     "  float u = (vQ.x - fract(uTime * 0.8)) / 0.14;",
     "  float pulse = exp(-u * u);",                                        // du curseur vers l'étoile
     "  float a = edge * vQ.z * (0.5 + 0.5 * vQ.x + pulse * 0.9);",
@@ -382,7 +399,9 @@
     gl.bufferData(gl.ARRAY_BUFFER, data, usage || gl.STATIC_DRAW);
     return b;
   }
-  var starBuf = buffer(stars), lineBuf = buffer(lines);
+  var starBuf = buffer(stars), lineBuf = buffer(lines), streakBuf = buffer(streaks);
+  var meteorData = new Float32Array(6 * 5);
+  var meteorBuf = buffer(meteorData, gl.DYNAMIC_DRAW);
   var quadBuf = buffer(new Float32Array([-1, -1, 3, -1, -1, 3]));
   var MAX_LINKS = 6;
   var linkData = new Float32Array(MAX_LINKS * 6 * 5);
@@ -471,6 +490,17 @@
   var camZ = z0;
   /* page de lecture (texte long) : le ciel se fait discret derrière */
   var CALM = document.querySelector("main > .container") ? 0.4 : 1;
+  /* la clairière : ronde autour du logo sur l'accueil (elle le suit
+     quand la page défile), une colonne centrale ailleurs */
+  var heroLogo = document.getElementById("heroLogo");
+  var clear = heroLogo ? { force: 0.82, x: 0, y: 0, r: 1, round: 1 } : { force: 0.5, x: 0, y: 0, r: 0.8, round: 0 };
+  function placeClearing() {
+    if (!heroLogo) return;
+    var box = heroLogo.getBoundingClientRect(), cw = canvas.clientWidth, ch = canvas.clientHeight;
+    clear.x = (box.left + box.width / 2) / cw * 2 - 1;
+    clear.y = 1 - (box.top + box.height / 2) / ch * 2;
+    clear.r = Math.max(box.width, box.height) / ch * 1.55;      // en demi-hauteurs d'écran
+  }
 
   function mix(a, b, t) { return a + (b - a) * t; }
   function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
@@ -500,6 +530,8 @@
     gl.uniform1f(u.uAperture, APERTURE);
     gl.uniform1f(u.uFade, fade);
     gl.uniform1f(u.uAdd, theme);
+    gl.uniform4f(u.uClear, clear.force, clear.x, clear.y, clear.r);
+    gl.uniform1f(u.uClearY, clear.round);
   }
 
   /* le même calcul que toView() dans les shaders, pour savoir où une
@@ -555,6 +587,39 @@
     return n * 6;
   }
 
+  /* ── Étoiles filantes : une de temps en temps, jamais sur une page de lecture ── */
+  var meteor = null, nextMeteor = 4 + Math.random() * 5;
+  function buildMeteor(time) {
+    if (CALM < 1 || leaveAt) return 0;
+    if (!meteor) {
+      if (time < nextMeteor) return 0;
+      var dir = (Math.random() < 0.5 ? 1 : -1) * (0.25 + Math.random() * 0.5);     // pente
+      meteor = {
+        at: time, dur: 0.75 + Math.random() * 0.5,
+        x: 0.1 + Math.random() * 0.8, y: 0.05 + Math.random() * 0.45,
+        dx: Math.cos(dir) * (Math.random() < 0.5 ? 1 : -1), dy: Math.abs(Math.sin(dir)) + 0.15,
+        len: 0.22 + Math.random() * 0.2
+      };
+    }
+    var p = (time - meteor.at) / meteor.dur;
+    if (p >= 1) { meteor = null; nextMeteor = time + 6 + Math.random() * 10; return 0; }
+    var cw = canvas.clientWidth, ch = canvas.clientHeight, unit = Math.max(cw, ch);
+    var n = Math.hypot(meteor.dx, meteor.dy), ux = meteor.dx / n, uy = meteor.dy / n;
+    var hx = meteor.x * cw + ux * unit * meteor.len * p, hy = meteor.y * ch + uy * unit * meteor.len * p;
+    var tail = Math.min(150, unit * meteor.len * p);
+    var alpha = Math.sin(Math.PI * p) * 0.9;
+    var o = 0;
+    [[0, -1], [0, 1], [1, -1], [1, -1], [0, 1], [1, 1]].forEach(function (c) {
+      var x = hx - ux * tail * (1 - c[0]) - uy * 1.5 * c[1], y = hy - uy * tail * (1 - c[0]) + ux * 1.5 * c[1];
+      meteorData[o++] = x / cw * 2 - 1;
+      meteorData[o++] = 1 - y / ch * 2;
+      meteorData[o++] = c[0];
+      meteorData[o++] = c[1];
+      meteorData[o++] = alpha;
+    });
+    return 6;
+  }
+
   function frame(now) {
     requestAnimationFrame(frame);
     var dt = Math.min(0.05, (now - last) / 1000);
@@ -587,7 +652,9 @@
     }
     travel += speed * dt;
     camZ = (z0 + travel + scrollZ) % L;
+    var warp = Math.min(1, Math.max(0, (speed - 300) / 2400));   // 0 au repos, 1 en pleine plongée
 
+    placeClearing();
     cam.x = look.x * 80;
     cam.y = -look.y * 50;
     cam.roll = Math.sin(time * 0.05) * 0.06;
@@ -642,18 +709,37 @@
     gl.uniform3fv(lineProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
     gl.drawArrays(gl.TRIANGLES, 0, N_LINE_VERTS);
 
-    /* 4 · les liens vers le curseur */
-    var linkVerts = buildLinks();
-    if (linkVerts) {
+    /* 3 bis · en plongée, les étoiles s'étirent en traînées */
+    if (warp > 0.01) {
+      attribs(streakBuf, 48, [3, 3, 4, 2]);
+      gl.uniform1f(lineProg.u.uLineW, 0.4 * dpr);
+      gl.uniform1f(lineProg.u.uGain, warp * mix(0.5, 0.75, theme));
+      gl.uniform1f(lineProg.u.uPulse, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, N_STREAK_VERTS);
+    }
+
+    /* 4 · les liens vers le curseur, et l'étoile filante */
+    var linkVerts = buildLinks(), meteorVerts = buildMeteor(time);
+    if (linkVerts || meteorVerts) {
       gl.useProgram(linkProg.p);
-      gl.bindBuffer(gl.ARRAY_BUFFER, linkBuf);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, linkData);
-      attribs(linkBuf, 20, [2, 3]);
       gl.uniform1f(linkProg.u.uAdd, theme);
       gl.uniform1f(linkProg.u.uTime, time);
       gl.uniform3fv(linkProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
       gl.uniform3fv(linkProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
-      gl.drawArrays(gl.TRIANGLES, 0, linkVerts);
+      if (linkVerts) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, linkBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, linkData);
+        attribs(linkBuf, 20, [2, 3]);
+        gl.uniform1f(linkProg.u.uMeteor, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, linkVerts);
+      }
+      if (meteorVerts) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, meteorBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, meteorData);
+        attribs(meteorBuf, 20, [2, 3]);
+        gl.uniform1f(linkProg.u.uMeteor, 1);
+        gl.drawArrays(gl.TRIANGLES, 0, meteorVerts);
+      }
     }
 
     /* 5 · les étoiles */
@@ -812,6 +898,35 @@
       });
     }, { rootMargin: "0px 0px -6% 0px" });
     rising.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ── Le curseur est un nœud ──
+     Un anneau le suit avec un léger retard (c'est vers lui que
+     convergent les liens des constellations) et s'élargit sur ce
+     qui se clique. Souris seulement ; le curseur natif reste. */
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    var ring = document.createElement("div");
+    ring.className = "cursor-node";
+    ring.setAttribute("aria-hidden", "true");
+    document.body.appendChild(ring);
+    var rx = -100, ry = -100, gx = -100, gy = -100, seen = false;
+    window.addEventListener("pointermove", function (e) {
+      if (e.pointerType === "touch") return;
+      gx = e.clientX;
+      gy = e.clientY;
+      if (!seen) { seen = true; rx = gx; ry = gy; }
+      ring.classList.add("on");
+      var t = e.target;
+      ring.classList.toggle("over", !!(t && t.closest && t.closest("a, button, .logo3d, #gameCanvas, .shot img")));
+      ring.classList.toggle("typing", !!(t && t.closest && t.closest("input, textarea")));
+    }, { passive: true });
+    document.documentElement.addEventListener("mouseleave", function () { ring.classList.remove("on"); });
+    (function follow() {
+      rx += (gx - rx) * 0.22;
+      ry += (gy - ry) * 0.22;
+      ring.style.transform = "translate3d(" + rx.toFixed(1) + "px," + ry.toFixed(1) + "px,0)";
+      requestAnimationFrame(follow);
+    })();
   }
 
   /* ── Transitions entre les pages ──
