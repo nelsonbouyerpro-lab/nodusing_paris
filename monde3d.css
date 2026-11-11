@@ -454,3 +454,62 @@ html.gl-world { background: var(--bg); }
 .veil[data-planet="0"] { background: radial-gradient(circle at 50% 60%, #dfe9ff 0%, #5b82f0 38%, #10226f 100%); }
 .veil[data-planet="1"] { background: radial-gradient(circle at 50% 60%, #fff3e0 0%, #e2a56e 40%, #6b2c12 100%); }
 .veil[data-planet="2"] { background: radial-gradient(circle at 50% 60%, #f3f6fc 0%, #a9b4c9 42%, #353c4d 100%); }
+
+/* ── Jouer avec le ciel (monde3d.js) ── */
+
+/* sur une étoile qu'on peut relier, l'anneau du curseur se resserre et s'allume */
+.cursor-node.star::before {
+  transform: scale(0.75);
+  opacity: 1;
+  border-width: 2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* le mot d'explication, la première fois qu'on choisit une étoile */
+.sky-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 2.2rem;
+  z-index: 200;
+  transform: translate(-50%, 10px);
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--fg);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 400ms ease-out, transform 400ms var(--ease-out, ease-out);
+}
+.sky-hint.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── L'étoile du message : elle s'allume à côté du logo après l'envoi ── */
+
+.ui-3d .brand { position: relative; }
+.new-star {
+  position: absolute;
+  left: 25px;
+  top: -5px;
+  width: 11px;
+  height: 11px;
+  background: var(--accent-light);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  animation: newStarTwinkle 2.6s ease-in-out infinite;
+}
+[data-theme="light"] .new-star { background: var(--accent); }
+.new-star.ignite { animation: newStarIgnite 900ms var(--ease-pop, ease-out) both, newStarTwinkle 2.6s ease-in-out 900ms infinite; }
+@keyframes newStarIgnite {
+  0%   { transform: scale(0) rotate(-90deg); }
+  60%  { transform: scale(2.2) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes newStarTwinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(0.72); opacity: 0.7; }
+}

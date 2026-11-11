@@ -183,6 +183,22 @@
     "float clearing(vec2 ndc) {",
     "  float d = length((ndc - uClear.yz) * vec2(uAspect, uClearY)) / uClear.w;",
     "  return 1.0 - uClear.x * (1.0 - smoothstep(0.45, 1.1, d));",
+    "}",
+    /* les ondes lancées d'un clic : un anneau qui s'élargit, avive ce
+       qu'il traverse et le repousse un instant.
+       uWave[i] = (centre x, centre y, rayon, force) ; renvoie (déplacement, éclat) */
+    "uniform vec4 uWave[3];",
+    "vec3 ripple(vec2 ndc) {",
+    "  vec2 push = vec2(0.0);",
+    "  float glow = 0.0;",
+    "  for (int i = 0; i < 3; i++) {",
+    "    vec2 d = (ndc - uWave[i].xy) * vec2(uAspect, 1.0);",
+    "    float len = length(d), q = (len - uWave[i].z) / 0.09;",
+    "    float band = exp(-q * q) * uWave[i].w;",
+    "    glow += band;",
+    "    push += d / max(len, 1e-3) * band;",
+    "  }",
+    "  return vec3(push * vec2(1.0 / uAspect, 1.0) * 0.04, glow);",
     "}"
   ].join("\n");
 
@@ -190,6 +206,7 @@
     "attribute vec3 aPos; attribute vec4 aInfo;",     // repli, taille, sorte, phase
     VIEW,
     "uniform vec3 uPtr;",                             // pointeur (x, y en coordonnées écran, présence)
+    "uniform vec3 uSel;",                             // l'étoile choisie pour tracer un lien (x, y, présence)
     "varying float vAlpha, vSoft, vKind, vCore, vTint;",
     "void main() {",
     "  vec3 p = toView(aPos, aInfo.x, aInfo.w);",
@@ -198,7 +215,10 @@
     "  vec2 ndc = p.xy * uF / z * vec2(1.0 / uAspect, 1.0);",
     /* les étoiles proches du curseur s'allument */
     "  float near = smoothstep(0.34, 0.0, length((ndc - uPtr.xy) * vec2(uAspect, 1.0))) * uPtr.z * step(0.5, kind);",
-    "  float rad = aInfo.y * uF / z * uH * 0.5 * (1.0 + near * 0.5);",
+    "  float sel = smoothstep(0.02, 0.0, length((ndc - uSel.xy) * vec2(uAspect, 1.0))) * uSel.z * step(0.5, kind);",
+    "  vec3 wave = ripple(ndc);",
+    "  ndc += wave.xy;",
+    "  float rad = aInfo.y * uF / z * uH * 0.5 * (1.0 + near * 0.5 + sel * 1.3 + wave.z * 0.8);",
     "  float dim = 1.0;",
     "  if (rad < 0.8) { dim = rad * rad / 0.64; rad = 0.8; }",       // plus petite qu'un pixel : elle pâlit au lieu de disparaître
     "  float coc = blur(z);",
@@ -208,7 +228,7 @@
     "  gl_Position = vec4(ndc, 0.0, 1.0);",
     "  if (p.z < 1.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);",      // derrière la caméra : hors champ
     "  float twinkle = 1.0 + 0.3 * sin(uTime * (1.1 + fract(aInfo.w * 7.3) * 2.4) + aInfo.w * 40.0);",
-    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3) * clearing(ndc);",
+    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3 + sel * 2.0 + wave.z * 2.6) * clearing(ndc);",
     "  vSoft = clamp(coc / core, 0.0, 1.0);",
     "  vCore = core / (gl_PointSize * 0.5);",
     "  vKind = kind;",
@@ -252,6 +272,8 @@
     "  float za = max(a.z, 1.0), zb = max(b.z, 1.0);",
     "  vec2 sa = a.xy * uF / za * vec2(1.0 / uAspect, 1.0);",
     "  vec2 sb = b.xy * uF / zb * vec2(1.0 / uAspect, 1.0);",
+    "  vec3 wa = ripple(sa), wb = ripple(sb);",          // les liens suivent leurs étoiles dans l'onde
+    "  sa += wa.xy; sb += wb.xy;",
     "  vec2 dir = (sb - sa) * vec2(uAspect, 1.0);",
     "  float len = length(dir);",
     "  dir = len > 1e-5 ? dir / len : vec2(1.0, 0.0);",
@@ -263,7 +285,7 @@
     "  off.x /= uAspect;",
     "  gl_Position = vec4(mix(sa, sb, aE.x) + off, 0.0, 1.0);",
     "  vAlpha = fog(mix(a.z, b.z, aE.x)) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
-    "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x));",
+    "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x)) * (1.0 + mix(wa.z, wb.z, aE.x) * 2.0);",
     "  vT = aE.x; vSide = aE.y; vHalf = halfW; vCoc = coc; vSeed = aI.w;",
     "}"
   ].join("\n");
@@ -299,6 +321,11 @@
     "void main() {",
     "  float edge = smoothstep(1.0, 0.3, abs(vQ.y));",
     /* une étoile filante : une tête vive, une queue qui s'éteint */
+    "  if (uMeteor > 1.5) {",                                    // un lien tracé par le visiteur : net et constant
+    "    float m = edge * vQ.z;",
+    "    gl_FragColor = vec4(uColP * m, m * (1.0 - uAdd));",
+    "    return;",
+    "  }",
     "  if (uMeteor > 0.5) {",
     "    float m = edge * vQ.z * vQ.x * vQ.x;",
     "    gl_FragColor = vec4(mix(uColA, uColP, vQ.x) * m, m * (1.0 - uAdd));",
@@ -346,6 +373,7 @@
   var BG_FS = [
     PRECISION,
     "uniform vec2 uRes, uGlowAt; uniform vec3 uBg, uGlow; uniform float uGlowAmt, uDark, uNebOn;",
+    "uniform vec4 uWave[3];",
     "uniform sampler2D uNeb;",
     "void main() {",
     "  vec2 uv = gl_FragCoord.xy / uRes;",
@@ -356,6 +384,11 @@
     "  vec4 neb = texture2D(uNeb, uv) * uNebOn;",
     "  c += neb.rgb * uDark * 0.8;",                                      // la nuit : de la lumière
     "  c -= neb.a * (1.0 - uDark) * vec3(0.05, 0.036, 0.004);",            // le jour : un lavis bleuté sur le papier
+    /* le front de chaque onde : un cercle fin */
+    "  for (int i = 0; i < 3; i++) {",
+    "    float qw = (length((uv * 2.0 - 1.0 - uWave[i].xy) * vec2(uRes.x / uRes.y, 1.0)) - uWave[i].z) / 0.010;",
+    "    c = mix(c, mix(vec3(0.0, 0.184, 0.655), vec3(0.55, 0.68, 1.0), uDark), exp(-qw * qw) * uWave[i].w * 0.4);",
+    "  }",
     "  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);",
     "  gl_FragColor = vec4(c + (n - 0.5) / 255.0, 1.0);",                  // grain : pas de bandes dans les dégradés
     "}"
@@ -446,7 +479,7 @@
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     var u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (var k = 0; k < n; k++) {
-      var name = gl.getActiveUniform(p, k).name;
+      var name = gl.getActiveUniform(p, k).name.replace("[0]", "");
       u[name] = gl.getUniformLocation(p, name);
     }
     return { p: p, u: u };
@@ -475,9 +508,34 @@
   var meteorData = new Float32Array(6 * 5);
   var meteorBuf = buffer(meteorData, gl.DYNAMIC_DRAW);
   var quadBuf = buffer(new Float32Array([-1, -1, 3, -1, -1, 3]));
+  /* ── Jouer avec le ciel ──
+     Un clic dans le vide lance une onde. Un clic sur une étoile la
+     choisit ; le clic suivant sur une autre étoile trace un lien entre
+     elles, et ainsi de suite : on dessine sa constellation. Elle est
+     faite de vraies étoiles du ciel, donc elle voyage avec lui, et on la
+     retrouve de page en page (le ciel est le même partout). */
+  var waves = [{ x: 0, y: 0, at: -1e9 }, { x: 0, y: 0, at: -1e9 }, { x: 0, y: 0, at: -1e9 }], waveNext = 0;
+  var waveData = new Float32Array(12);
+  function addWave(px, py) {
+    waves[waveNext] = { x: px / canvas.clientWidth * 2 - 1, y: 1 - py / canvas.clientHeight * 2, at: performance.now() };
+    waveNext = (waveNext + 1) % 3;
+  }
+  var MAX_USER = 40;
+  var userLinks = [], pending = -1;       // paires d'indices dans figures · étoile en attente d'un lien
+  try {
+    userLinks = (JSON.parse(sessionStorage.getItem("constellation") || "[]") || []).filter(function (l) {
+      return l && l[0] >= 0 && l[1] >= 0 && l[0] < figures.length && l[1] < figures.length;
+    });
+  } catch (e) { userLinks = []; }
+  function saveLinks() {
+    try { sessionStorage.setItem("constellation", JSON.stringify(userLinks)); } catch (e) { /* stockage indisponible */ }
+  }
+  var userData = new Float32Array((MAX_USER + 1) * 6 * 5);
+
   var MAX_LINKS = 6;
   var linkData = new Float32Array(MAX_LINKS * 6 * 5);
   var linkBuf = buffer(linkData, gl.DYNAMIC_DRAW);
+  var userBuf = buffer(userData, gl.DYNAMIC_DRAW);
 
   /* quatre attributs au plus : on les active une fois pour toutes */
   for (var at = 0; at < 4; at++) gl.enableVertexAttribArray(at);
@@ -687,6 +745,7 @@
     gl.uniform1f(u.uAdd, theme);
     gl.uniform4f(u.uClear, clear.force, clear.x, clear.y, clear.r);
     gl.uniform1f(u.uClearY, clear.round);
+    gl.uniform4fv(u.uWave, waveData);
   }
 
   /* le même calcul que toView() dans les shaders, pour savoir où une
@@ -709,7 +768,7 @@
   /* ── Le curseur est un nœud : il se relie aux étoiles voisines ── */
   var LINK_R = 190;              // portée, en pixels CSS
   function buildLinks() {
-    if (!pointer.on || leaveAt) return 0;
+    if (!pointer.on || leaveAt || pending >= 0) return 0;    // pendant qu'on trace, pas de liens automatiques
     var cw = canvas.clientWidth, ch = canvas.clientHeight;
     var found = [];
     for (var i = 0; i < figures.length; i++) {
@@ -741,6 +800,95 @@
     }
     return n * 6;
   }
+
+  /* où tombe l'étoile i à l'écran (pixels CSS), et sa netteté ; null si on ne la voit pas */
+  function screenOf(i) {
+    var p = project(figures[i]);
+    if (!p || p.z > FAR * 0.8) return null;
+    var far = Math.min(1, Math.max(0, (FAR * 0.8 - p.z) / (FAR * 0.3)));
+    var near = Math.min(1, Math.max(0, (p.z - 60) / 260));
+    return { x: (p.x * 0.5 + 0.5) * canvas.clientWidth, y: (0.5 - p.y * 0.5) * canvas.clientHeight, a: far * near, nx: p.x, ny: p.y };
+  }
+  /* l'étoile de constellation sous un point de l'écran, ou -1 */
+  function starAt(px, py) {
+    var best = -1, bestD = 26;
+    for (var i = 0; i < figures.length; i++) {
+      var sc = screenOf(i);
+      if (!sc || sc.a < 0.15) continue;
+      var d = Math.hypot(sc.x - px, sc.y - py);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+  /* les liens tracés par le visiteur, et celui qu'il est en train de tirer */
+  function buildUser() {
+    var cw = canvas.clientWidth, ch = canvas.clientHeight, o = 0, n = 0;
+    var seg = function (x0, y0, x1, y1, alpha) {
+      var dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy);
+      if (len < 1 || alpha < 0.01 || n > MAX_USER) return;
+      var nx = -dy / len * 1.7, ny = dx / len * 1.7;
+      [[0, -1], [0, 1], [1, -1], [1, -1], [0, 1], [1, 1]].forEach(function (c) {
+        userData[o++] = ((c[0] ? x1 : x0) + nx * c[1]) / cw * 2 - 1;
+        userData[o++] = 1 - ((c[0] ? y1 : y0) + ny * c[1]) / ch * 2;
+        userData[o++] = c[0];
+        userData[o++] = c[1];
+        userData[o++] = alpha;
+      });
+      n++;
+    };
+    userLinks.forEach(function (l) {
+      var a = screenOf(l[0]), b = screenOf(l[1]);
+      if (a && b) seg(a.x, a.y, b.x, b.y, Math.min(a.a, b.a) * 0.9);
+    });
+    if (pending >= 0 && pointer.on) {
+      var from = screenOf(pending);
+      if (from) seg(from.x, from.y, pointer.px, pointer.py, 0.4 * from.a);
+    }
+    return n * 6;
+  }
+
+  /* un mot d'explication, la première fois qu'on choisit une étoile */
+  var hinted = false;
+  function hint() {
+    if (hinted || userLinks.length) return;
+    hinted = true;
+    var el = document.createElement("p");
+    el.className = "sky-hint";
+    el.setAttribute("role", "status");
+    el.textContent = root.lang === "en" ? "Click another star to link them" : "Cliquez une autre étoile pour les relier";
+    document.body.appendChild(el);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.add("on"); }); });
+    setTimeout(function () { el.classList.remove("on"); }, 4500);
+    setTimeout(function () { el.remove(); }, 5200);
+  }
+
+  /* un clic « dans le ciel » : ni sur un lien, ni sur un panneau, ni sur un champ */
+  var SOLID = "a, button, input, textarea, select, label, canvas, form, .stop-panel, .form-success, .win-panel, .lang-toggle";
+  function inSky(e) { return !(e.target.closest && e.target.closest(SOLID)); }
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || leaveAt || e.button !== 0 || !inSky(e)) return;
+    var hit = starAt(e.clientX, e.clientY);
+    if (hit < 0) { pending = -1; addWave(e.clientX, e.clientY); return; }
+    if (pending >= 0 && pending !== hit) {
+      var known = userLinks.some(function (l) { return (l[0] === pending && l[1] === hit) || (l[0] === hit && l[1] === pending); });
+      if (!known) {
+        userLinks.push([pending, hit]);
+        if (userLinks.length > MAX_USER) userLinks.shift();
+        saveLinks();
+      }
+    } else if (pending < 0) {
+      hint();
+    }
+    pending = hit;
+  });
+  /* double-clic dans le vide : on efface sa constellation ; Échap : on lâche l'étoile en cours */
+  document.addEventListener("dblclick", function (e) {
+    if (!inSky(e) || starAt(e.clientX, e.clientY) >= 0) return;
+    userLinks = [];
+    pending = -1;
+    saveLinks();
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") pending = -1; });
 
   /* ── Étoiles filantes : une de temps en temps, jamais sur une page de lecture ── */
   var meteor = null, nextMeteor = 4 + Math.random() * 5;
@@ -821,6 +969,15 @@
     cam.F = F;
     cam.time = time;
 
+    for (var w = 0; w < 3; w++) {
+      var age = (now - waves[w].at) / 1700;
+      waveData[w * 4] = waves[w].x;
+      waveData[w * 4 + 1] = waves[w].y;
+      waveData[w * 4 + 2] = 2.2 * easeOut(age);
+      waveData[w * 4 + 3] = age < 1 ? Math.pow(1 - age, 1.5) : 0;
+    }
+    api.nearStar = pointer.on === 1 && starAt(pointer.px, pointer.py) >= 0;
+
     gl.disable(gl.BLEND);
     attribs(quadBuf, 0, [2]);
 
@@ -849,6 +1006,7 @@
     gl.uniform2f(bgProg.u.uGlowAt, 0.5 - look.x * 0.04, 0.56 + look.y * 0.04);
     gl.uniform3fv(bgProg.u.uBg, mix3(BG[0], BG[1], theme));
     gl.uniform3fv(bgProg.u.uGlow, mix3(GLOW[0], GLOW[1], theme));
+    gl.uniform4fv(bgProg.u.uWave, waveData);
     gl.uniform1f(bgProg.u.uGlowAmt, mix(-0.04, 0.16, theme));   // en clair : une ombre bleutée très légère
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -878,8 +1036,8 @@
     gl.drawArrays(gl.TRIANGLES, 0, N_STREAK_VERTS);
 
     /* 4 · les liens vers le curseur, et l'étoile filante */
-    var linkVerts = buildLinks(), meteorVerts = buildMeteor(time);
-    if (linkVerts || meteorVerts) {
+    var linkVerts = buildLinks(), meteorVerts = buildMeteor(time), userVerts = buildUser();
+    if (linkVerts || meteorVerts || userVerts) {
       gl.useProgram(linkProg.p);
       gl.uniform1f(linkProg.u.uAdd, theme);
       gl.uniform1f(linkProg.u.uTime, time);
@@ -899,6 +1057,13 @@
         gl.uniform1f(linkProg.u.uMeteor, 1);
         gl.drawArrays(gl.TRIANGLES, 0, meteorVerts);
       }
+      if (userVerts) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, userBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, userData);
+        attribs(userBuf, 20, [2, 3]);
+        gl.uniform1f(linkProg.u.uMeteor, 2);
+        gl.drawArrays(gl.TRIANGLES, 0, userVerts);
+      }
     }
 
     /* 5 · les étoiles */
@@ -906,6 +1071,8 @@
     attribs(starBuf, 28, [3, 4]);
     setView(starProg, fade);
     gl.uniform3f(starProg.u.uPtr, pointer.x, -pointer.y, ptrGlow);
+    var chosen = pending >= 0 ? screenOf(pending) : null;
+    gl.uniform3f(starProg.u.uSel, chosen ? chosen.nx : 0, chosen ? chosen.ny : 0, chosen ? 1 : 0);
     gl.uniform1f(starProg.u.uGain, mix(0.62, 0.95, theme) * mix(0.55, 1, CALM));
     gl.uniform1f(starProg.u.uGlow, mix(0.3, 1, theme));
     gl.uniform1f(starProg.u.uRing, mix(0.55, 0.16, theme));
@@ -920,7 +1087,10 @@
   requestAnimationFrame(frame);
 
   /* interface publique, pour les transitions de page */
-  window.monde3d = {
+  var api = window.monde3d = {
+    nearStar: false,             // le curseur est-il sur une étoile qu'on peut relier ?
+    /* lance une onde depuis un point de l'écran (pixels CSS) */
+    wave: function (px, py) { addWave(px, py); },
     /* lance la plongée et retient où l'on est, pour la page suivante */
     leave: function () {
       leaveAt = performance.now();
@@ -1118,9 +1288,107 @@
       rx += (gx - rx) * 0.22;
       ry += (gy - ry) * 0.22;
       ring.style.transform = "translate3d(" + rx.toFixed(1) + "px," + ry.toFixed(1) + "px,0)";
+      /* sur une étoile qu'on peut relier, l'anneau le signale */
+      ring.classList.toggle("star", !!(window.monde3d && window.monde3d.nearStar) && !ring.classList.contains("over"));
       requestAnimationFrame(follow);
     })();
   }
+
+  /* ── Le message part en comète ──
+     Quand le formulaire de contact est bien parti (script.js émet
+     « nodusing:message »), une comète s'élance du bouton vers l'étoile
+     du logo ; à l'arrivée, une onde, et une nouvelle étoile s'allume à
+     côté du logo. Elle y reste le temps de la visite. */
+  function lightStar(ignite) {
+    var brand = document.querySelector(".brand");
+    if (!brand || brand.querySelector(".new-star")) return;
+    var star = document.createElement("span");
+    star.className = "new-star" + (ignite ? " ignite" : "");
+    star.setAttribute("aria-hidden", "true");
+    brand.appendChild(star);
+  }
+  try { if (sessionStorage.getItem("etoile")) lightStar(false); } catch (e) { /* stockage indisponible */ }
+
+  function comet(from) {
+    var node = document.querySelector(".brand .themed-logo circle:last-of-type, .brand .mono-accent");
+    var box = node ? node.getBoundingClientRect() : null;
+    var x0 = from.x != null ? from.x : window.innerWidth / 2, y0 = from.y != null ? from.y : window.innerHeight * 0.7;
+    var x1 = box ? box.left + box.width / 2 : window.innerWidth / 2, y1 = box ? box.top + box.height / 2 : -40;
+    /* une trajectoire courbe : elle monte avant de piquer vers le logo */
+    var cx = (x0 + x1) / 2 + (y1 - y0) * 0.25, cy = Math.min(y0, y1) - 150;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cv = document.createElement("canvas");
+    cv.setAttribute("aria-hidden", "true");
+    cv.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:350;pointer-events:none";
+    cv.width = window.innerWidth * dpr;
+    cv.height = window.innerHeight * dpr;
+    document.body.appendChild(cv);
+    var g = cv.getContext("2d");
+    g.scale(dpr, dpr);
+    var rgb = root.dataset.theme === "dark" ? "170, 195, 255" : "0, 47, 167";
+    var start = performance.now(), FLY = 1500, BURST = 700;
+    var at = function (e) {                                  // un point de la trajectoire, e de 0 à 1
+      var u = 1 - e;
+      return [u * u * x0 + 2 * u * e * cx + e * e * x1, u * u * y0 + 2 * u * e * cy + e * e * y1];
+    };
+    (function draw(now) {
+      var t = (now - start) / FLY;
+      g.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      /* la tête avance (lent, vif, lent) ; la queue est le morceau de
+         trajectoire juste derrière elle, et la rejoint à l'arrivée */
+      var tt = Math.min(t, 1);
+      var head = tt < 0.5 ? 4 * tt * tt * tt : 1 - Math.pow(-2 * tt + 2, 3) / 2;
+      var tail = Math.max(0, head - 0.24 * Math.max(0, 1 - Math.max(0, t - 1) * 5));
+      g.lineCap = "round";
+      var prev = at(tail), STEPS = 26;
+      for (var i = 1; i <= STEPS && head > tail; i++) {
+        var k = i / STEPS, pt = at(tail + (head - tail) * k);
+        g.strokeStyle = "rgba(" + rgb + ", " + (k * 0.85).toFixed(3) + ")";
+        g.lineWidth = 0.5 + k * 4.5;
+        g.beginPath();
+        g.moveTo(prev[0], prev[1]);
+        g.lineTo(pt[0], pt[1]);
+        g.stroke();
+        prev = pt;
+      }
+      if (t < 1) {
+        var hp = at(head);
+        var glow = g.createRadialGradient(hp[0], hp[1], 0, hp[0], hp[1], 26);
+        glow.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+        glow.addColorStop(0.25, "rgba(" + rgb + ", 0.7)");
+        glow.addColorStop(1, "rgba(" + rgb + ", 0)");
+        g.fillStyle = glow;
+        g.beginPath();
+        g.arc(hp[0], hp[1], 26, 0, Math.PI * 2);
+        g.fill();
+      }
+      if (t >= 1) {
+        /* l'arrivée : un éclat qui s'élargit et s'éteint */
+        var b = Math.min(1, (now - start - FLY) / BURST), out = 1 - Math.pow(1 - b, 3);
+        g.strokeStyle = "rgba(" + rgb + ", " + ((1 - b) * 0.8).toFixed(3) + ")";
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(x1, y1, 6 + out * 44, 0, Math.PI * 2);
+        g.stroke();
+        var flash = g.createRadialGradient(x1, y1, 0, x1, y1, 30);
+        flash.addColorStop(0, "rgba(255, 255, 255, " + ((1 - b) * 0.9).toFixed(3) + ")");
+        flash.addColorStop(1, "rgba(" + rgb + ", 0)");
+        g.fillStyle = flash;
+        g.beginPath();
+        g.arc(x1, y1, 30, 0, Math.PI * 2);
+        g.fill();
+        if (!cv.arrived) {
+          cv.arrived = true;
+          lightStar(true);
+          if (window.monde3d) window.monde3d.wave(x1, y1);
+          try { sessionStorage.setItem("etoile", "1"); } catch (err) { /* stockage indisponible */ }
+        }
+        if (b >= 1) { cv.remove(); return; }
+      }
+      requestAnimationFrame(draw);
+    })(start);
+  }
+  document.addEventListener("nodusing:message", function (e) { comet(e.detail || {}); });
 
   /* ── Transitions entre les pages ──
      Au clic sur un lien, la page part vers l'avant pendant que la

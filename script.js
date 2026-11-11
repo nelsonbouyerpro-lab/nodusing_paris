@@ -429,6 +429,13 @@
       })
         .then(function (response) {
           if (!response.ok) throw new Error("HTTP " + response.status);
+          /* le message est parti : monde3d.js en fait une comète, lancée du bouton */
+          var launch = submitBtn.getBoundingClientRect();
+          try {
+            document.dispatchEvent(new CustomEvent("nodusing:message", {
+              detail: { x: launch.left + launch.width / 2, y: launch.top + launch.height / 2 }
+            }));
+          } catch (err) { /* CustomEvent indisponible : pas de comète, le reste suit */ }
           form.hidden = true;
           formSuccess.hidden = false;
           submitBtn.disabled = false;
