@@ -889,3 +889,38 @@ body.play .hero-after { animation: fadeUp 0.9s var(--ease-out) 2.85s both; }
   .comet { display: none; }
   .node-field { display: none; }
 }
+
+/* ── Lien « Contact » de la barre du haut : toujours à portée ── */
+
+.ctrl-link {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: border-color 250ms var(--ease-out), color 250ms var(--ease-out),
+              background-color 350ms var(--ease-out), transform 250ms var(--ease-out);
+}
+.ctrl-link:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+/* ── Accessibilité : le focus clavier se voit partout ── */
+
+a:focus-visible,
+button:focus-visible,
+canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.btn:focus-visible, .ctrl-btn:focus-visible, .ctrl-link:focus-visible { border-radius: 999px; }
+
+/* le lien de la note de page (confidentialité) se reconnaît sans survol */
+.game-note a { border-bottom-color: color-mix(in srgb, var(--grey) 45%, transparent); }

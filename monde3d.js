@@ -175,6 +175,9 @@
     "  return p;",
     "}",
     "float fog(float z) { return smoothstep(" + FAR.toFixed(1) + ", " + (FAR * 0.45).toFixed(1) + ", z) * smoothstep(60.0, 320.0, z); }",
+    /* les constellations s'effacent bien avant d'arriver sur nous : de
+       près, une figure deviendrait énorme et volerait la vedette au contenu */
+    "float fogFigure(float z, float edge) { return smoothstep(" + FAR.toFixed(1) + ", " + (FAR * 0.45).toFixed(1) + ", z) * smoothstep(edge * 0.2, edge, z); }",
     /* flou de profondeur de champ, en pixels */
     "float blur(float z) { return abs(1.0 / z - 1.0 / uFocus) * uAperture * uH; }",
     /* une clairière là où vit le contenu : le ciel s'y fait plus discret.
@@ -228,7 +231,7 @@
     "  gl_Position = vec4(ndc, 0.0, 1.0);",
     "  if (p.z < 1.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);",      // derrière la caméra : hors champ
     "  float twinkle = 1.0 + 0.3 * sin(uTime * (1.1 + fract(aInfo.w * 7.3) * 2.4) + aInfo.w * 40.0);",
-    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3 + sel * 2.0 + wave.z * 2.6) * clearing(ndc);",
+    "  vAlpha = (kind > 0.5 ? fogFigure(p.z, 950.0) : fog(p.z)) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3 + sel * 2.0 + wave.z * 2.6) * clearing(ndc);",
     "  vSoft = clamp(coc / core, 0.0, 1.0);",
     "  vCore = core / (gl_PointSize * 0.5);",
     "  vKind = kind;",
@@ -269,6 +272,7 @@
     VIEW,
     "uniform float uLineW, uStretch;",          // uStretch < 1 : le trait est raccourci vers A (traînées)
     "uniform vec3 uPtr;",                        // pointeur (x, y, présence)
+    "uniform float uNearEdge;",                  // distance en deçà de laquelle le trait s'efface
     "varying float vAlpha, vT, vSide, vHalf, vCoc, vSeed;",
     "void main() {",
     "  vec3 a = toView(aA, aI.x, aI.y), b = toView(mix(aA, aB, uStretch), aI.x, aI.z);",
@@ -287,7 +291,7 @@
     "  vec2 off = nrm * aE.y * halfW * 2.0 / uH;",
     "  off.x /= uAspect;",
     "  gl_Position = vec4(mix(sa, sb, aE.x) + off, 0.0, 1.0);",
-    "  vAlpha = fog(mix(a.z, b.z, aE.x)) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
+    "  vAlpha = fogFigure(mix(a.z, b.z, aE.x), uNearEdge) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
     "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x)) * (1.0 + mix(wa.z, wb.z, aE.x) * 2.0)",
     "         * (1.0 + smoothstep(0.38, 0.0, length((mix(sa, sb, aE.x) - uPtr.xy) * vec2(uAspect, 1.0))) * uPtr.z * 1.7);",
     "  vT = aE.x; vSide = aE.y; vHalf = halfW; vCoc = coc; vSeed = aI.w;",
@@ -756,7 +760,7 @@
   /* la clairière : ronde autour du logo sur l'accueil (elle le suit
      quand la page défile), une colonne centrale ailleurs */
   var heroLogo = document.getElementById("heroLogo");
-  var clear = heroLogo ? { force: 0.82, x: 0, y: 0, r: 1, round: 1 } : { force: 0.5, x: 0, y: 0, r: 0.8, round: 0 };
+  var clear = heroLogo ? { force: 0.82, x: 0, y: 0, r: 1, round: 1 } : { force: 0.72, x: 0, y: 0, r: 0.8, round: 0 };
   function placeClearing() {
     if (!heroLogo) return;
     var box = heroLogo.getBoundingClientRect(), cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -856,7 +860,7 @@
     var p = project(figures[i]);
     if (!p || p.z > FAR * 0.8) return null;
     var far = Math.min(1, Math.max(0, (FAR * 0.8 - p.z) / (FAR * 0.3)));
-    var near = Math.min(1, Math.max(0, (p.z - 60) / 260));
+    var near = Math.min(1, Math.max(0, (p.z - 190) / 760));
     return { x: (p.x * 0.5 + 0.5) * canvas.clientWidth, y: (0.5 - p.y * 0.5) * canvas.clientHeight, a: far * near, nx: p.x, ny: p.y };
   }
   /* l'étoile de constellation sous un point de l'écran, ou -1 */
@@ -1070,6 +1074,7 @@
     setView(lineProg, fade);
     gl.uniform1f(lineProg.u.uLineW, 0.55 * dpr);
     gl.uniform1f(lineProg.u.uStretch, 1);
+    gl.uniform1f(lineProg.u.uNearEdge, 950);
     gl.uniform1f(lineProg.u.uGain, mix(0.26, 0.33, theme) * CALM);
     gl.uniform3f(lineProg.u.uPtr, pointer.x, -pointer.y, ptrGlow);
     gl.uniform1f(lineProg.u.uPulse, mix(0.9, 1.5, theme) * CALM);
@@ -1082,6 +1087,7 @@
     attribs(streakBuf, 48, [3, 3, 4, 2]);
     gl.uniform1f(lineProg.u.uLineW, 0.4 * dpr);
     gl.uniform3f(lineProg.u.uPtr, 0, 0, 0);
+    gl.uniform1f(lineProg.u.uNearEdge, 320);
     gl.uniform1f(lineProg.u.uStretch, Math.min(1, Math.max(0.05, speed / 2600)));
     gl.uniform1f(lineProg.u.uGain, (0.22 + warp * 0.5) * mix(0.5, 0.8, theme) * mix(0.4, 1, CALM));
     gl.uniform1f(lineProg.u.uPulse, 0);

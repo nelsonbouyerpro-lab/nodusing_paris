@@ -45,7 +45,7 @@ html.gl-world { background: var(--bg); }
 /* le logo est le point de mire du voyage : on le veut grand */
 /* … mais jamais au point que ses anneaux sortent de l'écran : sur un
    téléphone (haut et étroit), c'est la largeur qui commande */
-.gl-logo .monogram { width: clamp(150px, min(38vh, 44vw), 440px); }
+.gl-logo .monogram { width: clamp(150px, min(32vh, 44vw), 400px); }
 
 /* le nom et PARIS suivent le N, mais de loin : ils s'inclinent à
    peine, sur deux plans en avant, et restent nets et lisibles. Une
@@ -405,9 +405,9 @@ html.gl-world { background: var(--bg); }
   padding: 0.35rem 0.6rem;
   margin: 0 0 0 0;
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--fg);
@@ -548,3 +548,26 @@ html.gl-world { background: var(--bg); }
 .voyage-nav a.on .voyage-nav-dot { background: var(--accent); border-color: var(--accent); transform: scale(1.5); }
 .ui-3d.leaving .voyage-nav { opacity: 0; transition: opacity 300ms ease-in; }
 @media (max-width: 820px) { .voyage-nav { display: none; } }
+
+/* ── L'arrivée : la dernière étape se présente de face, au centre ── */
+
+.stop--center .stop-panel {
+  width: min(660px, 100%);
+  justify-items: center;
+  text-align: center;
+  padding: clamp(1.8rem, 5vw, 3.2rem);
+}
+.stop--center .stop-panel h2 { font-size: clamp(2rem, 5.4vw, 3.1rem); }
+.stop--center .stop-sub { max-width: 44ch; }
+.stop-mail { font-size: 0.9rem; color: var(--grey); margin-top: 0.4rem; }
+.stop-mail a {
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 250ms var(--ease-out);
+}
+.stop-mail a:hover { border-bottom-color: var(--accent); }
+
+/* la phrase d'accroche de l'accueil : lisible sur le ciel */
+.gl-world .hero .tagline { color: color-mix(in srgb, var(--fg) 78%, var(--grey)); }
+.hero-after { gap: 1.25rem; }
