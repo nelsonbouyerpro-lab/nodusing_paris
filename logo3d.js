@@ -515,10 +515,18 @@
     { orbit: 1, speed: 0.078, at: 2.4 + Math.PI, size: 0.048 }
   ];
   var hi = [0, 0, 0], hiTarget = [0, 0, 0];
-  Array.prototype.forEach.call(document.querySelectorAll(".work-card"), function (card, i) {
-    if (i > 2) return;
-    ["pointerenter", "focus"].forEach(function (ev) { card.addEventListener(ev, function () { hiTarget[i] = 1; }); });
-    ["pointerleave", "blur"].forEach(function (ev) { card.addEventListener(ev, function () { hiTarget[i] = 0; }); });
+  /* chaque planète porte le nom de sa réalisation : un vrai lien, posé
+     sur elle à chaque image, qui emmène à son escale dans le voyage */
+  var tags = [["#logik", "Logik"], ["#brickrogue", "Brick Rogue"], ["#noeud", "Le Nœud"]].map(function (t, i) {
+    if (!document.querySelector(t[0])) return null;
+    var a = document.createElement("a");
+    a.className = "planet-tag";
+    a.href = t[0];
+    a.textContent = t[1];
+    ["pointerenter", "focus"].forEach(function (ev) { a.addEventListener(ev, function () { hiTarget[i] = 1; }); });
+    ["pointerleave", "blur"].forEach(function (ev) { a.addEventListener(ev, function () { hiTarget[i] = 0; }); });
+    wrap.appendChild(a);
+    return a;
   });
   var orbitN = new Float32Array(6), planets = new Float32Array(12);
 
@@ -584,6 +592,8 @@
     var back = function (p) {                     // vue → objet : la transposée de la rotation
       return [m[0] * p[0] + m[1] * p[1] + m[2] * p[2], m[3] * p[0] + m[4] * p[1] + m[5] * p[2], m[6] * p[0] + m[7] * p[1] + m[8] * p[2]];
     };
+    var bob = Math.sin(T * 0.8) * 0.012 + 0.012;
+    var half = canvas.clientHeight / 2;
     var sys = clamp01((T - 2.5) / 1.8);
     sys = sys * sys * (3 - 2 * sys);
     ORBITS.forEach(function (o, i) { orbitN.set(back(o.n), i * 3); });
@@ -591,15 +601,22 @@
       var o = ORBITS[pl.orbit], a = T * pl.speed + pl.at;
       var ca = Math.cos(a) * o.r, sa = Math.sin(a) * o.r;
       hi[i] += (hiTarget[i] - hi[i]) * 0.1;
-      planets.set(back([ca * o.u[0] + sa * o.v[0], ca * o.u[1] + sa * o.v[1], ca * o.u[2] + sa * o.v[2]]), i * 4);
+      var pv = [ca * o.u[0] + sa * o.v[0], ca * o.u[1] + sa * o.v[1], ca * o.u[2] + sa * o.v[2]];   // repère de l'écran
+      planets.set(back(pv), i * 4);
       planets[i * 4 + 3] = pl.size * sys * (1 + hi[i] * 0.3);
+      /* son nom la suit, juste dessous ; il s'estompe quand elle passe derrière le N */
+      if (tags[i]) {
+        var k = half / ((3.2 + pv[2]) * HALF);
+        tags[i].style.transform = "translate(-50%, 0) translate(" + (pv[0] * k).toFixed(1) + "px," +
+          (-(pv[1] + bob) * k + pl.size * k + 4).toFixed(1) + "px)";
+        tags[i].style.opacity = (sys * (pv[2] > 0 ? 0.55 : 1)).toFixed(2);
+      }
     });
     gl.uniform3fv(U.uOrbitN, orbitN);
     gl.uniform4fv(U.uPlanet, planets);
     gl.uniform3f(U.uHi, hi[0], hi[1], hi[2]);
     gl.uniform1f(U.uSys, sys);
     /* l'étoile accent : sa place à l'écran, et son éclat (plein de face, nul de dos) */
-    var bob = Math.sin(T * 0.8) * 0.012 + 0.012;
     var sx = m[0] * 0.44 + m[3] * -0.58, sy = m[1] * 0.44 + m[4] * -0.58 + bob, sz = m[2] * 0.44 + m[5] * -0.58;
     gl.uniform2f(U.uStar, sx / ((3.2 + sz) * HALF), sy / ((3.2 + sz) * HALF));
     var popA = first ? clamp01((T - POP_AT[2]) / POP_DUR[2]) : 1;

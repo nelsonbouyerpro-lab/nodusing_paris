@@ -361,6 +361,77 @@
     "}"
   ].join("\n");
 
+  /* les planètes du voyage : une sphère dessinée dans son carré, avec
+     un relief de bruit fractal, un terminateur doux et une atmosphère.
+     uKind : 0 océans et nuages · 1 géante gazeuse à anneaux · 2 lune de roche */
+  var PLANET_FS = [
+    PRECISION,
+    "uniform vec2 uC; uniform float uR, uTime, uKind, uAlpha, uAdd;",
+    "float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }",
+    "float noise(vec3 x) {",
+    "  vec3 i = floor(x), f = fract(x);",
+    "  f = f * f * (3.0 - 2.0 * f);",
+    "  return mix(mix(mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),",
+    "             mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);",
+    "}",
+    "float fbm(vec3 p) {",
+    "  float v = 0.0, a = 0.5;",
+    "  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 7.1; a *= 0.5; }",
+    "  return v;",
+    "}",
+    "void main() {",
+    "  vec2 q = (gl_FragCoord.xy - uC) / uR;",
+    "  float r = length(q), aa = 1.5 / uR;",
+    "  vec3 L = normalize(vec3(-0.55, 0.5, 0.67));",                        // la lumière vient du logo-étoile, en haut à gauche
+    "  vec3 atmo = uKind < 0.5 ? vec3(0.25, 0.5, 1.0) : (uKind < 1.5 ? vec3(1.0, 0.72, 0.45) : vec3(0.6, 0.72, 1.0));",
+    "  vec4 o = vec4(0.0);",
+    "  if (r < 1.0) {",
+    "    vec3 n = vec3(q, sqrt(max(1.0 - r * r, 0.0)));",
+    /* repère de la planète : un axe incliné, une rotation lente */
+    "    vec3 s = vec3(n.x * 0.94 - n.y * 0.34, n.x * 0.34 + n.y * 0.94, n.z);",
+    "    float a = uTime * 0.03;",
+    "    s = vec3(s.x * cos(a) + s.z * sin(a), s.y, -s.x * sin(a) + s.z * cos(a));",
+    "    vec3 col;",
+    "    if (uKind < 0.5) {",
+    "      float land = fbm(s * 2.4 + 3.0);",
+    "      col = mix(vec3(0.01, 0.05, 0.28), vec3(0.03, 0.20, 0.62), smoothstep(0.30, 0.60, land));",
+    "      col = mix(col, vec3(0.08, 0.35, 0.45), smoothstep(0.60, 0.72, land) * 0.6);",
+    "      float cloud = smoothstep(0.50, 0.75, fbm(s * 3.6 + vec3(uTime * 0.012, 0.0, 0.0) + 9.0));",
+    "      col = mix(col, vec3(0.90, 0.94, 1.0), cloud * 0.85);",
+    "      col = mix(col, vec3(0.92, 0.95, 1.0), smoothstep(0.80, 0.92, abs(s.y)));",          // calottes
+    "    } else if (uKind < 1.5) {",
+    "      float w = fbm(s * vec3(1.5, 5.0, 1.5) + 4.0);",
+    "      col = mix(vec3(0.42, 0.16, 0.06), vec3(0.93, 0.74, 0.50), sin(s.y * 16.0 + w * 5.0) * 0.5 + 0.5);",   // bandes
+    "      col = mix(col, vec3(0.98, 0.90, 0.75), smoothstep(0.55, 0.9, fbm(s * vec3(2.0, 9.0, 2.0))) * 0.5);",
+    "    } else {",
+    "      col = mix(vec3(0.22, 0.25, 0.32), vec3(0.74, 0.78, 0.86), smoothstep(0.25, 0.75, fbm(s * 3.2 + 1.7)));",
+    "      col *= 1.0 - smoothstep(0.62, 0.70, fbm(s * 6.5 + 12.0)) * 0.35;",                   // mers sombres
+    "    }",
+    "    float lit = smoothstep(-0.12, 0.55, dot(n, L));",
+    "    vec3 c = col * (lit * 1.15 + 0.035) + atmo * pow(1.0 - n.z, 3.0) * (0.15 + 0.75 * lit);",
+    "    c += vec3(1.0) * pow(max(reflect(-L, n).z, 0.0), 40.0) * 0.25 * step(uKind, 0.5) * lit;",   // l'océan brille
+    "    float cov = 1.0 - smoothstep(1.0 - aa, 1.0, r);",
+    "    o = vec4(c * cov, cov);",
+    "  }",
+    /* l'atmosphère déborde, du côté éclairé surtout */
+    "  float h = exp(-max(r - 1.0, 0.0) * 11.0) * (0.25 + 0.75 * smoothstep(-0.6, 0.6, dot(normalize(q + 1e-4), L.xy))) * 0.5 * step(r, 1.6);",
+    "  vec4 g = vec4(atmo * h, h * (1.0 - uAdd) * 0.6);",
+    "  o = o + g * (1.0 - o.a);",
+    /* les anneaux de la géante : un disque incliné, devant puis derrière elle */
+    "  if (uKind > 0.5 && uKind < 1.5) {",
+    "    vec3 nr = normalize(vec3(0.22, 0.90, 0.38));",
+    "    float z = -(nr.x * q.x + nr.y * q.y) / nr.z;",
+    "    float rho = length(vec3(q, z));",
+    "    float ring = smoothstep(1.32, 1.40, rho) * (1.0 - smoothstep(2.0, 2.08, rho)) * (0.5 + 0.5 * sin(rho * 40.0)) * 0.6;",
+    "    ring *= 1.0 - smoothstep(1.66, 1.70, rho) * (1.0 - smoothstep(1.74, 1.78, rho));",    // une division sombre
+    "    if (z < 0.0 && r < 1.0) ring = 0.0;",                                                  // la planète cache l'arrière
+    "    vec4 rg = vec4(vec3(0.95, 0.80, 0.60) * ring, ring * mix(1.0, 0.25, uAdd));",
+    "    o = rg + o * (1.0 - rg.a);",
+    "  }",
+    "  gl_FragColor = o * uAlpha;",
+    "}"
+  ].join("\n");
+
   function program(vs, fs, attribs) {
     var p = gl.createProgram();
     [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].forEach(function (s) {
@@ -381,11 +452,12 @@
     return { p: p, u: u };
   }
 
-  var starProg, lineProg, linkProg, bgProg, nebProg;
+  var starProg, lineProg, linkProg, bgProg, nebProg, planetProg;
   try {
     starProg = program(STAR_VS, STAR_FS, ["aPos", "aInfo"]);
     lineProg = program(LINE_VS, LINE_FS, ["aA", "aB", "aI", "aE"]);
     linkProg = program(LINK_VS, LINK_FS, ["aP", "aQ"]);
+    planetProg = program(QUAD_VS, PLANET_FS, ["aPos"]);
     bgProg = program(QUAD_VS, BG_FS, ["aPos"]);
     nebProg = program(QUAD_VS, NEBULA_FS, ["aPos"]);
   } catch (e) {
@@ -484,7 +556,90 @@
 
   var t0 = performance.now(), last = t0;
   var travel = 0;                // distance parcourue hors défilement
-  var scrollZ = window.scrollY * 0.9;
+  /* ── Le voyage : les escales de l'accueil et leurs planètes ──
+     Chaque planète attend sur la route, un peu en avant de son escale :
+     elle grossit à mesure qu'on approche, se range sur le côté quand on
+     y fait halte, puis on la frôle et on la dépasse. */
+  var heroEl = document.querySelector(".hero");
+  var stopEls = Array.prototype.slice.call(document.querySelectorAll(".stop"));
+  var centers = [];              // milieu de chaque étape, en pixels de défilement (0 : le logo)
+  function measureStops() {
+    centers = [];
+    if (!heroEl || !stopEls.length) return;
+    [heroEl].concat(stopEls).forEach(function (el) {
+      var b = el.getBoundingClientRect();
+      centers.push(b.top + window.scrollY + b.height / 2);
+    });
+  }
+  /* où en est-on ? 0 = le logo, 1 = la première planète, etc. */
+  function progress() {
+    var y = window.scrollY + window.innerHeight / 2;
+    if (centers.length < 2 || y <= centers[0]) return 0;
+    for (var i = 1; i < centers.length; i++) {
+      if (y < centers[i]) return i - 1 + (y - centers[i - 1]) / (centers[i] - centers[i - 1]);
+    }
+    return centers.length - 1;
+  }
+  measureStops();
+  window.addEventListener("resize", measureStops);
+  window.addEventListener("load", measureStops);
+
+  /* plonger dans une planète (dir 1), ou en redécoller (dir -1) */
+  var dive = { i: -1, at: 0, dir: 1 };
+  try {
+    var takeoff = JSON.parse(sessionStorage.getItem("decollage") || "null");
+    if (takeoff && Date.now() - takeoff.at < 8000) dive = { i: takeoff.i, at: performance.now(), dir: -1 };
+  } catch (e) { /* stockage indisponible */ }
+  function diveZoom(i, now) {
+    if (dive.i !== i) return 1;
+    var t = (now - dive.at) / 1000, k;
+    if (dive.dir > 0) { k = Math.min(1, t / 0.85); return 1 + 16 * k * k * k; }
+    k = Math.min(1, t / 1.5);
+    if (k >= 1) { dive.i = -1; return 1; }
+    return 1 + 16 * Math.pow(1 - k, 3);
+  }
+
+  var AHEAD = 0.34;              // avance de la planète sur son escale, en étapes
+  function drawPlanets(now, time) {
+    if (!stopEls.length) return;
+    var p = progress();
+    var cw = canvas.clientWidth, ch = canvas.clientHeight, narrow = cw < 820;
+    var appear = Math.min(1, Math.max(0, (p - 0.12) / 0.4));       // près du logo, elles n'ont pas encore paru
+    gl.useProgram(planetProg.p);
+    attribs(quadBuf, 0, [2]);
+    gl.uniform1f(planetProg.u.uTime, time);
+    gl.uniform1f(planetProg.u.uAdd, theme);
+    gl.enable(gl.SCISSOR_TEST);
+    for (var i = 2; i >= 0; i--) {                                  // la plus lointaine d'abord
+      var zoom = diveZoom(i, now);
+      var d = i + 1 - p + AHEAD;
+      if (zoom === 1 && (d <= 0.03 || d > 2.7)) continue;
+      d = Math.max(d, 0.03);
+      var s = AHEAD / d;
+      var alpha = zoom > 1 ? 1 : appear * Math.min(1, (2.7 - d) / 0.5) * Math.min(1, (d - 0.03) / 0.05);
+      if (alpha <= 0.003) continue;
+      /* à l'escale, la planète se tient du côté opposé au panneau ; en
+         plongée, on fonce droit dessus : elle revient au centre */
+      var side = i % 2 === 0 ? 1 : -1;
+      var drift = s / Math.pow(zoom, 1.4);
+      var x = cw / 2 + (narrow ? 0 : side * cw * 0.2) * drift;
+      var y = ch / 2 + (narrow ? ch * 0.2 : ch * 0.01) * drift;
+      var R = (narrow ? cw * 0.27 : Math.min(cw * 0.15, ch * 0.24)) * s * zoom;
+      var ext = R * (i === 1 ? 2.2 : 1.7);
+      gl.scissor(Math.max(0, Math.floor((x - ext) * dpr)), Math.max(0, Math.floor((y - ext) * dpr)),
+                 Math.ceil(ext * 2 * dpr), Math.ceil(ext * 2 * dpr));
+      gl.uniform2f(planetProg.u.uC, x * dpr, y * dpr);
+      gl.uniform1f(planetProg.u.uR, R * dpr);
+      gl.uniform1f(planetProg.u.uKind, i);
+      gl.uniform1f(planetProg.u.uAlpha, alpha);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    gl.disable(gl.SCISSOR_TEST);
+  }
+
+  /* sur l'accueil, le défilement est le moteur du voyage : on avance franchement */
+  var SCROLL_K = stopEls.length ? 2.4 : 0.9;
+  var scrollZ = window.scrollY * SCROLL_K;
   var leaveAt = 0;               // début de la plongée de sortie
   var theme = root.dataset.theme === "dark" ? 1 : 0;
   var camZ = z0;
@@ -631,7 +786,7 @@
     look.x += (pointer.x - look.x) * Math.min(1, dt * 2.5);
     look.y += (pointer.y - look.y) * Math.min(1, dt * 2.5);
     ptrGlow += (pointer.on - ptrGlow) * Math.min(1, dt * 5);
-    scrollZ += (window.scrollY * 0.9 - scrollZ) * Math.min(1, dt * 6);
+    scrollZ += (window.scrollY * SCROLL_K - scrollZ) * Math.min(1, dt * 6);
 
     var speed = CRUISE * (CALM < 1 ? 0.4 : 1), F = F_REST, fade = 1;
     var intro = easeOut(time / 1.6);
@@ -758,6 +913,9 @@
     gl.uniform3fv(starProg.u.uColB, mix3(COL_B[0], COL_B[1], theme));
     gl.uniform3fv(starProg.u.uColCore, mix3(COL_CORE[0], COL_CORE[1], theme));
     gl.drawArrays(gl.POINTS, 0, N_STARS);
+
+    /* 6 · les planètes du voyage, devant les étoiles */
+    drawPlanets(now, time);
   }
   requestAnimationFrame(frame);
 
@@ -771,7 +929,9 @@
       }, 380);
     },
     /* retour par l'historique (bfcache) : la page revient telle quelle */
-    back: function () { leaveAt = 0; },
+    back: function () { leaveAt = 0; dive.i = -1; },
+    /* plonge dans la planète i (0, 1, 2) : elle grossit jusqu'à emplir l'écran */
+    dive: function (i) { dive = { i: i, at: performance.now(), dir: 1 }; },
     /* hook de test (console uniquement) : où tombent les étoiles des constellations, en pixels CSS */
     etoiles: function () {
       var out = [];
@@ -871,7 +1031,36 @@
      Tout ce qui est listé ici attend en retrait, puis vient se
      poser quand il entre dans l'écran. L'accueil a sa propre mise
      en scène (script.js) et n'est pas concerné. */
+  /* ── Entrer dans une planète, en redécoller ──
+     Un voile à la couleur de l'atmosphère couvre l'écran au moment du
+     passage, puis se lève : à l'arrivée sur la page d'une réalisation
+     (on a plongé), ou au retour sur l'accueil (on a redécollé). */
+  function veil(planet, shown) {
+    var v = document.createElement("div");
+    v.className = "veil" + (shown ? " on" : "");
+    v.setAttribute("data-planet", planet);
+    v.setAttribute("aria-hidden", "true");
+    document.body.appendChild(v);
+    return v;
+  }
+  var STOP_IDS = ["logik", "brickrogue", "noeud"];
+  /* la planète d'où l'on vient quand on quitte cette page pour l'accueil */
+  var homePlanet = /brickrogue/.test(location.pathname) ? 1 : (/jeu\.html$/.test(location.pathname) ? 2 : -1);
+  try {
+    var crossing = JSON.parse(sessionStorage.getItem("planete") || sessionStorage.getItem("decollage") || "null");
+    sessionStorage.removeItem("planete");
+    sessionStorage.removeItem("decollage");
+    if (crossing && Date.now() - crossing.at < 8000) {
+      var arrival = veil(crossing.i, true);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { arrival.classList.add("lift"); });
+      });
+      setTimeout(function () { arrival.remove(); }, 1400);
+    }
+  } catch (e) { /* stockage indisponible */ }
+
   var rising = all([
+    ".stop-panel",
     ".site-header",
     ".game > *:not(.shots):not(.brick-points):not(.game-stage)",   // le plateau a sa propre mise en scène
     ".shot", ".brick-points li",
@@ -943,6 +1132,32 @@
     if (!/^https?:$/.test(link.protocol)) return;                       // mailto:, tel:…
     if (link.origin === location.origin && link.pathname === location.pathname && link.hash) return;   // ancre
     e.preventDefault();
+    var go = function (url, delay) { setTimeout(function () { location.href = url; }, delay); };
+    var remember = function (key, planet) {
+      try { sessionStorage.setItem(key, JSON.stringify({ i: planet, at: Date.now() })); } catch (err) { /* stockage indisponible */ }
+    };
+    /* entrer dans une planète : on fonce dessus, son atmosphère emplit l'écran */
+    var planet = link.getAttribute("data-planet");
+    if (planet !== null && window.monde3d) {
+      root.classList.add("leaving");
+      window.monde3d.dive(+planet);
+      window.monde3d.leave();
+      var entering = veil(planet, false);
+      setTimeout(function () { entering.classList.add("on"); }, 470);
+      remember("planete", +planet);
+      go(link.href, 860);
+      return;
+    }
+    /* quitter la page d'une réalisation pour l'accueil : on redécolle de sa planète */
+    if (homePlanet >= 0 && link.origin === location.origin && /(^|\/)(index\.html)?$/.test(link.pathname)) {
+      root.classList.add("leaving");
+      veil(homePlanet, false).offsetWidth;
+      document.querySelector(".veil").classList.add("on");
+      if (window.monde3d) window.monde3d.leave();
+      remember("decollage", homePlanet);
+      go(link.origin + link.pathname + "#" + STOP_IDS[homePlanet], 380);
+      return;
+    }
     root.classList.add("leaving");
     if (window.monde3d) window.monde3d.leave();
     setTimeout(function () { location.href = link.href; }, 430);
@@ -950,6 +1165,7 @@
   window.addEventListener("pageshow", function (e) {
     if (!e.persisted) return;
     root.classList.remove("leaving");
+    all(".veil").forEach(function (v) { v.remove(); });
     if (window.monde3d) window.monde3d.back();
   });
 })();
