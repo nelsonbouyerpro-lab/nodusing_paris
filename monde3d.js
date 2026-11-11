@@ -45,7 +45,7 @@
   var R_IN = 430, R_OUT = 1900;
   var small = Math.min(window.innerWidth, window.innerHeight) < 700;
   var N_CONST = small ? 46 : 84;
-  var N_DUST = small ? 1400 : 3200;
+  var N_DUST = small ? 1900 : 4400;
 
   function seeded(seed) {
     return function () {
@@ -138,7 +138,7 @@
     var r = Math.sqrt(lo * lo + rand() * (hi * hi - lo * lo));
     var z = rand() * L;
     var dust = { x: Math.cos(a) * r, y: Math.sin(a) * r, z: z, phase: rand() * TAU };
-    pushStar(dust.x, dust.y, z, z, 1.1 + Math.pow(rand(), 3) * 3, 0, dust.phase);
+    pushStar(dust.x, dust.y, z, z, 0.9 + Math.pow(rand(), 4) * 3.4, 0, dust.phase);   // beaucoup de faibles, peu de brillantes
     /* une étoile sur deux laisse une traînée quand la caméra plonge */
     if (i % 2 === 0) pushLine(dust, { x: dust.x, y: dust.y, z: z + 360, phase: dust.phase }, z, rand(), streakData);
   }
@@ -239,7 +239,7 @@
   var STAR_FS = [
     PRECISION,
     "uniform vec3 uColA, uColB, uColCore;",
-    "uniform float uAdd, uGain, uGlow, uRing;",
+    "uniform float uAdd, uGain, uGlow, uRing, uWarm;",
     "varying float vAlpha, vSoft, vKind, vCore, vTint;",
     "void main() {",
     "  vec2 q = (gl_PointCoord - 0.5) * 2.0;",
@@ -256,6 +256,8 @@
     "  float ring = smoothstep(0.24, 0.0, abs(k - 2.3)) * isMaster * sharp;",
     "  float a = (disc + (halo + spikes) * uGlow + ring * uRing) * vAlpha * uGain;",
     "  vec3 col = mix(mix(uColA, uColB, vTint), uColCore, disc * isStar * 0.85);",
+    /* la nuit, toutes les étoiles n'ont pas la même température : quelques-unes sont dorées */
+    "  col = mix(col, vec3(1.0, 0.82, 0.60), step(0.86, fract(vTint * 7.13)) * uWarm * (1.0 - 0.5 * isStar));",
     "  gl_FragColor = vec4(col * a, a * (1.0 - uAdd));",
     "}"
   ].join("\n");
@@ -266,6 +268,7 @@
     "attribute vec2 aE;",        // extrémité (0 = A, 1 = B), côté (-1 / +1)
     VIEW,
     "uniform float uLineW, uStretch;",          // uStretch < 1 : le trait est raccourci vers A (traînées)
+    "uniform vec3 uPtr;",                        // pointeur (x, y, présence)
     "varying float vAlpha, vT, vSide, vHalf, vCoc, vSeed;",
     "void main() {",
     "  vec3 a = toView(aA, aI.x, aI.y), b = toView(mix(aA, aB, uStretch), aI.x, aI.z);",
@@ -285,7 +288,8 @@
     "  off.x /= uAspect;",
     "  gl_Position = vec4(mix(sa, sb, aE.x) + off, 0.0, 1.0);",
     "  vAlpha = fog(mix(a.z, b.z, aE.x)) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
-    "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x)) * (1.0 + mix(wa.z, wb.z, aE.x) * 2.0);",
+    "         * step(40.0, min(a.z, b.z)) * clearing(mix(sa, sb, aE.x)) * (1.0 + mix(wa.z, wb.z, aE.x) * 2.0)",
+    "         * (1.0 + smoothstep(0.38, 0.0, length((mix(sa, sb, aE.x) - uPtr.xy) * vec2(uAspect, 1.0))) * uPtr.z * 1.7);",
     "  vT = aE.x; vSide = aE.y; vHalf = halfW; vCoc = coc; vSeed = aI.w;",
     "}"
   ].join("\n");
@@ -366,6 +370,11 @@
     "  vec3 col = vec3(0.02, 0.085, 0.36) * cloud",
     "           + vec3(0.13, 0.05, 0.30) * cloud * smoothstep(0.42, 0.75, a) * 0.7",    // une pointe de violet
     "           + vec3(0.03, 0.22, 0.38) * wisps * cloud * 0.4;",                        // filaments plus clairs
+    /* la voie lactée : une bande pâle qui traverse le ciel, coupée de poussières sombres */
+    "  float al = mod(p.y * 0.86 + p.x * 0.5 - 1.85, 2.4) - 1.2;",
+    "  float milky = exp(-al * al / 0.045);",
+    "  col += vec3(0.09, 0.11, 0.20) * milky * (0.35 + 0.9 * fbm(p * 5.0 + 11.0));",
+    "  col *= 1.0 - 0.55 * milky * smoothstep(0.50, 0.72, fbm(p * 4.2 + 20.0));",
     "  gl_FragColor = vec4(col, cloud);",
     "}"
   ].join("\n");
@@ -382,7 +391,7 @@
     "  float edge = smoothstep(0.35, 1.25, length((uv - 0.5) * vec2(uRes.x / uRes.y, 1.0)));",
     "  vec3 c = uBg + uGlow * (g * uGlowAmt) - edge * 0.035 * (1.0 - uBg) - edge * 0.025 * uBg;",
     "  vec4 neb = texture2D(uNeb, uv) * uNebOn;",
-    "  c += neb.rgb * uDark * 0.8;",                                      // la nuit : de la lumière
+    "  c += neb.rgb * uDark * 0.72;",                                      // la nuit : de la lumière
     "  c -= neb.a * (1.0 - uDark) * vec3(0.05, 0.036, 0.004);",            // le jour : un lavis bleuté sur le papier
     /* le front de chaque onde : un cercle fin */
     "  for (int i = 0; i < 3; i++) {",
@@ -396,10 +405,13 @@
 
   /* les planètes du voyage : une sphère dessinée dans son carré, avec
      un relief de bruit fractal, un terminateur doux et une atmosphère.
-     uKind : 0 océans et nuages · 1 géante gazeuse à anneaux · 2 lune de roche */
+     uKind : 0 océans, terres et nuages · 1 géante gazeuse dont les anneaux
+     portent son ombre (et elle la leur) · 2 lune de roche au relief éclairé */
   var PLANET_FS = [
     PRECISION,
     "uniform vec2 uC; uniform float uR, uTime, uKind, uAlpha, uAdd;",
+    "const vec3 L = vec3(-0.5496, 0.4996, 0.6695);",       // la lumière vient du logo-étoile, en haut à gauche
+    "const vec3 RING_N = vec3(0.2197, 0.8987, 0.3795);",   // l'axe des anneaux de la géante
     "float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }",
     "float noise(vec3 x) {",
     "  vec3 i = floor(x), f = fract(x);",
@@ -407,58 +419,95 @@
     "  return mix(mix(mix(hash(i), hash(i + vec3(1.0, 0.0, 0.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 0.0)), hash(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),",
     "             mix(mix(hash(i + vec3(0.0, 0.0, 1.0)), hash(i + vec3(1.0, 0.0, 1.0)), f.x), mix(hash(i + vec3(0.0, 1.0, 1.0)), hash(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);",
     "}",
-    "float fbm(vec3 p) {",
+    "float fbm(vec3 p) {",                                  // le détail fin : cinq octaves
     "  float v = 0.0, a = 0.5;",
-    "  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 7.1; a *= 0.5; }",
+    "  for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.02 + 7.1; a *= 0.5; }",
     "  return v;",
+    "}",
+    "float fbm3(vec3 p) {",                                 // le relief : trois octaves suffisent
+    "  float v = 0.0, a = 0.5;",
+    "  for (int i = 0; i < 3; i++) { v += a * noise(p); p = p * 2.02 + 7.1; a *= 0.5; }",
+    "  return v;",
+    "}",
+    /* du repère de l'écran à celui de la planète : un axe incliné, une rotation lente */
+    "vec3 spin(vec3 n) {",
+    "  vec3 s = vec3(n.x * 0.94 - n.y * 0.34, n.x * 0.34 + n.y * 0.94, n.z);",
+    "  float a = uTime * 0.03, c = cos(a), d = sin(a);",
+    "  return vec3(s.x * c + s.z * d, s.y, -s.x * d + s.z * c);",
+    "}",
+    /* la matière des anneaux, selon la distance au centre : des sillons, une division sombre */
+    "float ringDensity(float rho) {",
+    "  float d = smoothstep(1.28, 1.34, rho) * (1.0 - smoothstep(2.02, 2.10, rho));",
+    "  d *= 1.0 - smoothstep(1.62, 1.65, rho) * (1.0 - smoothstep(1.70, 1.73, rho)) * 0.9;",
+    "  return d * (0.45 + 0.55 * noise(vec3(rho * 46.0, 0.5, 0.5))) * (0.55 + 0.45 * smoothstep(1.30, 1.62, rho));",
     "}",
     "void main() {",
     "  vec2 q = (gl_FragCoord.xy - uC) / uR;",
     "  float r = length(q), aa = 1.5 / uR;",
-    "  vec3 L = normalize(vec3(-0.55, 0.5, 0.67));",                        // la lumière vient du logo-étoile, en haut à gauche
-    "  vec3 atmo = uKind < 0.5 ? vec3(0.25, 0.5, 1.0) : (uKind < 1.5 ? vec3(1.0, 0.72, 0.45) : vec3(0.6, 0.72, 1.0));",
+    "  vec3 atmo = uKind < 0.5 ? vec3(0.36, 0.60, 1.0) : (uKind < 1.5 ? vec3(1.0, 0.80, 0.58) : vec3(0.55, 0.62, 0.78));",
+    "  float air = uKind < 0.5 ? 1.0 : (uKind < 1.5 ? 0.5 : 0.1);",   // épaisseur d'atmosphère : la lune n'en a presque pas
     "  vec4 o = vec4(0.0);",
     "  if (r < 1.0) {",
     "    vec3 n = vec3(q, sqrt(max(1.0 - r * r, 0.0)));",
-    /* repère de la planète : un axe incliné, une rotation lente */
-    "    vec3 s = vec3(n.x * 0.94 - n.y * 0.34, n.x * 0.34 + n.y * 0.94, n.z);",
-    "    float a = uTime * 0.03;",
-    "    s = vec3(s.x * cos(a) + s.z * sin(a), s.y, -s.x * sin(a) + s.z * cos(a));",
-    "    vec3 col;",
+    "    vec3 s = spin(n), nb = n, col;",
+    "    float gloss = 0.0;",
     "    if (uKind < 0.5) {",
-    "      float land = fbm(s * 2.4 + 3.0);",
-    "      col = mix(vec3(0.01, 0.05, 0.28), vec3(0.03, 0.20, 0.62), smoothstep(0.30, 0.60, land));",
-    "      col = mix(col, vec3(0.08, 0.35, 0.45), smoothstep(0.60, 0.72, land) * 0.6);",
-    "      float cloud = smoothstep(0.50, 0.75, fbm(s * 3.6 + vec3(uTime * 0.012, 0.0, 0.0) + 9.0));",
-    "      col = mix(col, vec3(0.90, 0.94, 1.0), cloud * 0.85);",
-    "      col = mix(col, vec3(0.92, 0.95, 1.0), smoothstep(0.80, 0.92, abs(s.y)));",          // calottes
+    /* un monde d'océans : terres, glaces, nuages */
+    "      float h = fbm(s * 2.3 + 3.0) + 0.22 * fbm3(s * 7.0 + 1.0);",
+    "      float land = smoothstep(0.66, 0.71, h);",
+    "      vec3 sea = mix(vec3(0.010, 0.035, 0.150), vec3(0.020, 0.120, 0.340), smoothstep(0.40, 0.66, h));",
+    "      vec3 ground = mix(vec3(0.09, 0.19, 0.08), vec3(0.42, 0.35, 0.23), smoothstep(0.71, 0.88, h));",
+    "      col = mix(sea, ground, land);",
+    "      col = mix(col, vec3(0.90, 0.93, 0.96), smoothstep(0.78, 0.9, abs(s.y) + (h - 0.6) * 0.25));",
+    "      float cloud = smoothstep(0.50, 0.72, fbm(s * 3.4 + vec3(uTime * 0.01, 0.0, 0.0) + 9.0) + 0.1 * fbm3(s * 12.0 + 2.0));",
+    "      col = mix(col, vec3(0.94, 0.96, 0.98), cloud * 0.92);",
+    "      gloss = (1.0 - land) * (1.0 - cloud);",
     "    } else if (uKind < 1.5) {",
-    "      float w = fbm(s * vec3(1.5, 5.0, 1.5) + 4.0);",
-    "      col = mix(vec3(0.42, 0.16, 0.06), vec3(0.93, 0.74, 0.50), sin(s.y * 16.0 + w * 5.0) * 0.5 + 0.5);",   // bandes
-    "      col = mix(col, vec3(0.98, 0.90, 0.75), smoothstep(0.55, 0.9, fbm(s * vec3(2.0, 9.0, 2.0))) * 0.5);",
+    /* une géante gazeuse : des bandes tourmentées, de fines stries, une tempête */
+    "      float turb = fbm(s * vec3(2.0, 7.0, 2.0) + 4.0);",
+    "      float t = s.y * 8.5 + turb * 1.9;",
+    "      col = mix(vec3(0.47, 0.30, 0.20), vec3(0.86, 0.74, 0.58), smoothstep(0.15, 0.85, sin(t) * 0.5 + 0.5));",
+    "      col = mix(col, vec3(0.94, 0.88, 0.78), smoothstep(0.6, 0.95, sin(t * 2.3 + 1.0) * 0.5 + 0.5) * 0.35);",
+    "      col *= 0.92 + 0.16 * noise(s * vec3(4.0, 46.0, 4.0));",
+    "      col = mix(col, vec3(0.70, 0.36, 0.22), smoothstep(0.20, 0.07, length((s - vec3(0.55, -0.30, 0.78)) * vec3(1.0, 2.3, 1.0))) * 0.75);",
+    /* l'ombre des anneaux sur la planète */
+    "      float tr = -dot(n, RING_N) / dot(L, RING_N);",
+    "      if (tr > 0.0) col *= 1.0 - 0.6 * ringDensity(length(n + L * tr));",
     "    } else {",
-    "      col = mix(vec3(0.22, 0.25, 0.32), vec3(0.74, 0.78, 0.86), smoothstep(0.25, 0.75, fbm(s * 3.2 + 1.7)));",
-    "      col *= 1.0 - smoothstep(0.62, 0.70, fbm(s * 6.5 + 12.0)) * 0.35;",                   // mers sombres
+    /* une lune de roche : le relief accroche la lumière */
+    "      float h = fbm(s * 3.4 + 1.7), fine = fbm3(s * 11.0 + 5.0);",
+    "      col = mix(vec3(0.19, 0.20, 0.23), vec3(0.60, 0.61, 0.64), smoothstep(0.30, 0.72, h)) * (0.82 + 0.36 * fine);",
+    "      vec3 t1 = normalize(cross(n, vec3(0.0, 1.0, 0.02))), t2 = cross(n, t1);",
+    "      float h0 = fbm3(s * 6.0 + 2.0);",
+    "      float hx = fbm3(spin(normalize(n + t1 * 0.012)) * 6.0 + 2.0), hy = fbm3(spin(normalize(n + t2 * 0.012)) * 6.0 + 2.0);",
+    "      nb = normalize(n - (t1 * (hx - h0) + t2 * (hy - h0)) * 9.0);",
     "    }",
-    "    float lit = smoothstep(-0.12, 0.55, dot(n, L));",
-    "    vec3 c = col * (lit * 1.15 + 0.035) + atmo * pow(1.0 - n.z, 3.0) * (0.15 + 0.75 * lit);",
-    "    c += vec3(1.0) * pow(max(reflect(-L, n).z, 0.0), 40.0) * 0.25 * step(uKind, 0.5) * lit;",   // l'océan brille
+    /* un terminateur doux mais lisible ; la face nuit reste presque noire */
+    "    float lit = smoothstep(-0.08, 0.42, dot(nb, L));",
+    "    vec3 c = col * (lit * 1.08 + 0.012);",
+    "    c += vec3(1.0, 0.97, 0.90) * pow(max(reflect(-L, nb).z, 0.0), 70.0) * 0.6 * gloss * lit;",   // le soleil sur l'océan
+    /* l'atmosphère : elle se voit au limbe, du côté éclairé */
+    "    c = mix(c, atmo, pow(1.0 - n.z, 3.2) * air * (0.10 + 0.6 * lit));",
+    "    c += atmo * pow(1.0 - n.z, 7.0) * air * lit * 0.5;",
     "    float cov = 1.0 - smoothstep(1.0 - aa, 1.0, r);",
     "    o = vec4(c * cov, cov);",
     "  }",
-    /* l'atmosphère déborde, du côté éclairé surtout */
-    "  float h = exp(-max(r - 1.0, 0.0) * 11.0) * (0.25 + 0.75 * smoothstep(-0.6, 0.6, dot(normalize(q + 1e-4), L.xy))) * 0.5 * step(r, 1.6);",
+    /* le halo d'atmosphère, hors du disque, côté éclairé surtout */
+    "  float h = exp(-max(r - 1.0, 0.0) * 16.0) * (0.2 + 0.8 * smoothstep(-0.5, 0.6, dot(normalize(q + 1e-4), L.xy))) * 0.42 * air * step(r, 1.5);",
     "  vec4 g = vec4(atmo * h, h * (1.0 - uAdd) * 0.6);",
     "  o = o + g * (1.0 - o.a);",
-    /* les anneaux de la géante : un disque incliné, devant puis derrière elle */
+    /* les anneaux de la géante : un disque incliné, devant puis derrière
+       elle, sur lequel elle projette son ombre */
     "  if (uKind > 0.5 && uKind < 1.5) {",
-    "    vec3 nr = normalize(vec3(0.22, 0.90, 0.38));",
-    "    float z = -(nr.x * q.x + nr.y * q.y) / nr.z;",
-    "    float rho = length(vec3(q, z));",
-    "    float ring = smoothstep(1.32, 1.40, rho) * (1.0 - smoothstep(2.0, 2.08, rho)) * (0.5 + 0.5 * sin(rho * 40.0)) * 0.6;",
-    "    ring *= 1.0 - smoothstep(1.66, 1.70, rho) * (1.0 - smoothstep(1.74, 1.78, rho));",    // une division sombre
-    "    if (z < 0.0 && r < 1.0) ring = 0.0;",                                                  // la planète cache l'arrière
-    "    vec4 rg = vec4(vec3(0.95, 0.80, 0.60) * ring, ring * mix(1.0, 0.25, uAdd));",
+    "    float z = -(RING_N.x * q.x + RING_N.y * q.y) / RING_N.z;",
+    "    vec3 p3 = vec3(q, z);",
+    "    float rho = length(p3);",
+    "    float ring = ringDensity(rho) * 0.8;",
+    "    if (z < 0.0 && r < 1.0) ring = 0.0;",                         // la planète cache l'arrière
+    "    float b = dot(p3, L), disc = b * b - (rho * rho - 1.0);",
+    "    float shade = (b < 0.0 && disc > 0.0) ? smoothstep(0.0, 0.05, disc) : 0.0;",   // dans l'ombre de la planète
+    "    vec3 rc = vec3(0.80, 0.71, 0.58) * (0.75 + 0.25 * noise(vec3(rho * 90.0, 1.5, 0.5))) * (1.0 - 0.88 * shade);",
+    "    vec4 rg = vec4(rc * ring, ring);",
     "    o = rg + o * (1.0 - rg.a);",
     "  }",
     "  gl_FragColor = o * uAlpha;",
@@ -646,7 +695,7 @@
   var dive = { i: -1, at: 0, dir: 1 };
   try {
     var takeoff = JSON.parse(sessionStorage.getItem("decollage") || "null");
-    if (takeoff && Date.now() - takeoff.at < 8000) dive = { i: takeoff.i, at: performance.now(), dir: -1 };
+    if (takeoff && Date.now() - takeoff.at < 15000) dive = { i: takeoff.i, at: performance.now(), dir: -1 };
   } catch (e) { /* stockage indisponible */ }
   function diveZoom(i, now) {
     if (dive.i !== i) return 1;
@@ -661,6 +710,7 @@
   function drawPlanets(now, time) {
     if (!stopEls.length) return;
     var p = progress();
+    api.progress = p;
     var cw = canvas.clientWidth, ch = canvas.clientHeight, narrow = cw < 820;
     var appear = Math.min(1, Math.max(0, (p - 0.12) / 0.4));       // près du logo, elles n'ont pas encore paru
     gl.useProgram(planetProg.p);
@@ -1020,7 +1070,8 @@
     setView(lineProg, fade);
     gl.uniform1f(lineProg.u.uLineW, 0.55 * dpr);
     gl.uniform1f(lineProg.u.uStretch, 1);
-    gl.uniform1f(lineProg.u.uGain, mix(0.34, 0.6, theme) * CALM);
+    gl.uniform1f(lineProg.u.uGain, mix(0.26, 0.33, theme) * CALM);
+    gl.uniform3f(lineProg.u.uPtr, pointer.x, -pointer.y, ptrGlow);
     gl.uniform1f(lineProg.u.uPulse, mix(0.9, 1.5, theme) * CALM);
     gl.uniform3fv(lineProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
     gl.uniform3fv(lineProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
@@ -1030,6 +1081,7 @@
        avance), long en plongée entre deux pages */
     attribs(streakBuf, 48, [3, 3, 4, 2]);
     gl.uniform1f(lineProg.u.uLineW, 0.4 * dpr);
+    gl.uniform3f(lineProg.u.uPtr, 0, 0, 0);
     gl.uniform1f(lineProg.u.uStretch, Math.min(1, Math.max(0.05, speed / 2600)));
     gl.uniform1f(lineProg.u.uGain, (0.22 + warp * 0.5) * mix(0.5, 0.8, theme) * mix(0.4, 1, CALM));
     gl.uniform1f(lineProg.u.uPulse, 0);
@@ -1076,6 +1128,7 @@
     gl.uniform1f(starProg.u.uGain, mix(0.62, 0.95, theme) * mix(0.55, 1, CALM));
     gl.uniform1f(starProg.u.uGlow, mix(0.3, 1, theme));
     gl.uniform1f(starProg.u.uRing, mix(0.55, 0.16, theme));
+    gl.uniform1f(starProg.u.uWarm, theme);
     gl.uniform3fv(starProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
     gl.uniform3fv(starProg.u.uColB, mix3(COL_B[0], COL_B[1], theme));
     gl.uniform3fv(starProg.u.uColCore, mix3(COL_CORE[0], COL_CORE[1], theme));
@@ -1089,6 +1142,7 @@
   /* interface publique, pour les transitions de page */
   var api = window.monde3d = {
     nearStar: false,             // le curseur est-il sur une étoile qu'on peut relier ?
+    progress: 0,                 // où en est le voyage (0 : le logo, 1 : la première escale…)
     /* lance une onde depuis un point de l'écran (pixels CSS) */
     wave: function (px, py) { addWave(px, py); },
     /* lance la plongée et retient où l'on est, pour la page suivante */
@@ -1220,7 +1274,7 @@
     var crossing = JSON.parse(sessionStorage.getItem("planete") || sessionStorage.getItem("decollage") || "null");
     sessionStorage.removeItem("planete");
     sessionStorage.removeItem("decollage");
-    if (crossing && Date.now() - crossing.at < 8000) {
+    if (crossing && Date.now() - crossing.at < 15000) {
       var arrival = veil(crossing.i, true);
       requestAnimationFrame(function () {
         requestAnimationFrame(function () { arrival.classList.add("lift"); });
@@ -1291,6 +1345,39 @@
       /* sur une étoile qu'on peut relier, l'anneau le signale */
       ring.classList.toggle("star", !!(window.monde3d && window.monde3d.nearStar) && !ring.classList.contains("over"));
       requestAnimationFrame(follow);
+    })();
+  }
+
+  /* ── Le repère du voyage (accueil) ──
+     Une colonne de points, à droite : une par étape. Celui de l'étape
+     en cours est allumé ; chacun y emmène. Le nom de l'étape (lu dans
+     son titre, donc dans la langue courante) paraît au survol. */
+  var stops = all(".stop");
+  if (stops.length && root.classList.contains("gl-world")) {
+    var nav = document.createElement("nav");
+    nav.className = "voyage-nav";
+    nav.setAttribute("aria-label", "Étapes du voyage");
+    var dots = [["#depart", null]].concat(stops.map(function (st) { return ["#" + st.id, st.querySelector("h2")]; })).map(function (d, i) {
+      var a = document.createElement("a");
+      a.href = d[0];
+      var name = function () { return d[1] ? d[1].textContent.replace(/\.$/, "") : "nodusing"; };
+      a.setAttribute("aria-label", name());
+      a.innerHTML = '<span class="voyage-nav-name"></span><span class="voyage-nav-dot"></span>';
+      var refresh = function () { a.firstChild.textContent = (i ? "0" + i + " · " : "") + name(); a.setAttribute("aria-label", name()); };
+      a.addEventListener("pointerenter", refresh);
+      a.addEventListener("focus", refresh);
+      nav.appendChild(a);
+      return a;
+    });
+    document.body.appendChild(nav);
+    var current = -1;
+    (function watch() {
+      var at = Math.round(window.monde3d ? window.monde3d.progress : 0);
+      if (at !== current) {
+        current = at;
+        dots.forEach(function (a, i) { a.classList.toggle("on", i === at); });
+      }
+      requestAnimationFrame(watch);
     })();
   }
 

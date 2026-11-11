@@ -566,8 +566,6 @@
     /* le nom et PARIS suivent la même inclinaison (voir monde3d.css) */
     heroLogo.style.setProperty("--ry", hx.toFixed(2) + "deg");
     heroLogo.style.setProperty("--rx", hy.toFixed(2) + "deg");
-    heroLogo.style.setProperty("--ex", (-Math.sin(hx * RAD) * 1.25).toFixed(3) + "px");
-    heroLogo.style.setProperty("--ey", (Math.sin(hy * RAD) * 1.25 + 0.3).toFixed(3) + "px");
 
     var yaw = -hx * RAD + yawDrag;                // rotateY CSS et lacet du shader sont de sens opposés
     var pitch = hy * RAD;
