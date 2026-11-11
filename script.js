@@ -246,8 +246,11 @@
   applyLang();
 
   /* ── Champ de nœuds connectés (fond du hero) ── */
+  /* Repli 2D : quand le monde WebGL tourne (monde3d.js pose .gl-world),
+     c'est lui le fond et ce champ ne démarre pas. */
   var canvas = document.getElementById("nodeField");
-  if (canvas && !reducedMotion) {
+  var glWorld = document.documentElement.classList.contains("gl-world");
+  if (canvas && !reducedMotion && !glWorld) {
     var ctx = canvas.getContext("2d");
     var nodes = [];
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
