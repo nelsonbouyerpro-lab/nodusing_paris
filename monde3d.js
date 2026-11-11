@@ -2,9 +2,9 @@
    NODUSING PARIS — le monde 3D
    Chargé sur toutes les pages, avant script.js.
 
-   1. LE MONDE : un réseau de nœuds en WebGL derrière chaque page.
-      C'est le même univers partout (graine fixe) : on y avance en
-      faisant défiler la page, et un clic sur un lien y fait plonger
+   1. LE MONDE : un ciel de constellations en WebGL derrière chaque
+      page. C'est le même univers partout (graine fixe) : on y avance
+      en faisant défiler la page, et un clic sur un lien y fait plonger
       la caméra, qui ressort au même endroit sur la page suivante.
    2. L'INTERFACE : cartes qui basculent sous le curseur, contenus
       qui sortent de la profondeur au défilement, transitions.
@@ -30,15 +30,22 @@
   } catch (e) { /* WebGL indisponible */ }
   if (!gl) return;
 
-  /* ── L'univers : un tunnel de nœuds, creux en son centre ──
-     La caméra file le long de l'axe z ; le creux garde le milieu
-     de l'écran (là où vit le contenu) aux seuls nœuds lointains. */
-  var L = 6000;                 // longueur du tunnel, qui boucle sur lui-même
-  var FAR = 3600;               // au-delà, la brume a tout effacé
-  var R_IN = 420, R_OUT = 1800;
+  var TAU = Math.PI * 2;
+
+  /* ── L'univers : un tunnel creux, peuplé de constellations ──
+     La caméra file le long de l'axe z. Le creux central garde le
+     milieu de l'écran (là où vit le contenu) aux seules étoiles
+     lointaines. Trois populations :
+       · des constellations : des figures de 5 à 9 étoiles reliées
+         en arbre, comme sur une carte du ciel ;
+       · dans chacune, une ou deux étoiles maîtresses, plus grosses ;
+       · une poussière de petites étoiles, sans liens. */
+  var L = 7000;                 // longueur du tunnel, qui boucle sur lui-même
+  var FAR = 4300;               // au-delà, la brume a tout effacé
+  var R_IN = 430, R_OUT = 1900;
   var small = Math.min(window.innerWidth, window.innerHeight) < 700;
-  var COUNT = small ? 800 : 1500;
-  var LINK = small ? 400 : 330; // portée des liens
+  var N_CONST = small ? 46 : 84;
+  var N_DUST = small ? 1400 : 3200;
 
   function seeded(seed) {
     return function () {
@@ -50,59 +57,110 @@
   }
   var rand = seeded(1789);
 
-  var pts = new Float32Array(COUNT * 6);   // x, y, z, taille, sorte, phase
-  for (var i = 0; i < COUNT; i++) {
-    var a = rand() * 6.2832;
-    var r = Math.sqrt(R_IN * R_IN + rand() * (R_OUT * R_OUT - R_IN * R_IN));
-    var big = rand() < 0.07;
-    pts[i * 6]     = Math.cos(a) * r;
-    pts[i * 6 + 1] = Math.sin(a) * r;
-    pts[i * 6 + 2] = rand() * L;
-    pts[i * 6 + 3] = big ? 7 + rand() * 5 : 2.2 + rand() * 3;
-    pts[i * 6 + 4] = rand() < 0.22 ? 1 : 0;      // 0 = bleu, 1 = bleu clair / blanc
-    pts[i * 6 + 5] = rand() * 6.2832;
-  }
+  var starData = [];            // x, y, z, repli, taille, sorte, phase
+  var lineData = [];            // voir LINE_VS
+  var figures = [];             // étoiles des constellations, pour les liens vers le curseur
 
-  /* liens : chaque nœud rejoint ses deux plus proches voisins.
-     La distance tient compte de la boucle du tunnel, et chaque lien
-     garde le z de son milieu pour être replié d'un seul tenant. */
-  var seg = [], seen = {};
-  for (i = 0; i < COUNT; i++) {
-    var b1 = -1, b2 = -1, d1 = LINK * LINK, d2 = d1;
-    var xi = pts[i * 6], yi = pts[i * 6 + 1], zi = pts[i * 6 + 2];
-    for (var j = 0; j < COUNT; j++) {
-      if (j === i) continue;
-      var dz = Math.abs(pts[j * 6 + 2] - zi);
-      if (dz > L / 2) dz = L - dz;
-      if (dz > LINK) continue;
-      var dx = pts[j * 6] - xi, dy = pts[j * 6 + 1] - yi;
-      var dd = dx * dx + dy * dy + dz * dz;
-      if (dd < d1) { b2 = b1; d2 = d1; b1 = j; d1 = dd; }
-      else if (dd < d2) { b2 = j; d2 = dd; }
-    }
-    [b1, b2].forEach(function (j) {
-      if (j < 0) return;
-      var key = i < j ? i + "_" + j : j + "_" + i;
-      if (seen[key]) return;
-      seen[key] = true;
-      var zj = pts[j * 6 + 2];
-      if (zj - zi > L / 2) zj -= L; else if (zi - zj > L / 2) zj += L;
-      var mid = (zi + zj) / 2;
-      seg.push(xi, yi, zi, mid, pts[i * 6 + 5], pts[j * 6], pts[j * 6 + 1], zj, mid, pts[j * 6 + 5]);
+  function pushStar(x, y, z, mid, size, kind, phase) {
+    starData.push(x, y, z, mid, size, kind, phase);
+  }
+  /* un lien = un quadrilatère (6 sommets) étiré entre deux étoiles */
+  function pushLine(a, b, mid, seed) {
+    [[0, -1], [0, 1], [1, -1], [1, -1], [0, 1], [1, 1]].forEach(function (c) {
+      lineData.push(a.x, a.y, a.z, b.x, b.y, b.z, mid, a.phase, b.phase, seed, c[0], c[1]);
     });
   }
-  var lines = new Float32Array(seg);
+
+  for (var c = 0; c < N_CONST; c++) {
+    var ang = rand() * TAU;
+    var rad = Math.sqrt(Math.pow(R_IN + 200, 2) + rand() * (R_OUT * R_OUT - Math.pow(R_IN + 200, 2)));
+    var cx = Math.cos(ang) * rad, cy = Math.sin(ang) * rad;
+    var cz = (c + rand() * 0.8) / N_CONST * L;        // réparties le long du tunnel
+    var spread = 210 + rand() * 240;
+    var want = 5 + Math.floor(rand() * 5);
+    var fig = [];
+    for (var tries = 0; fig.length < want && tries < 60; tries++) {
+      var sx = cx + (rand() * 2 - 1) * spread;
+      var sy = cy + (rand() * 2 - 1) * spread * 0.8;
+      if (Math.hypot(sx, sy) < R_IN) continue;
+      var ok = true;
+      for (var q = 0; q < fig.length; q++) {
+        if (Math.hypot(fig[q].x - sx, fig[q].y - sy) < 85) { ok = false; break; }
+      }
+      if (!ok) continue;
+      fig.push({ x: sx, y: sy, z: cz + (rand() * 2 - 1) * 110, phase: rand() * TAU, mid: cz, deg: 0 });
+    }
+    if (fig.length < 3) continue;
+
+    /* arbre couvrant minimal : le tracé le plus court qui relie toutes
+       les étoiles — c'est ce qui donne l'allure d'une vraie constellation */
+    var inTree = [0], edges = [];
+    while (inTree.length < fig.length) {
+      var best = null, bestD = 1e9;
+      inTree.forEach(function (i) {
+        for (var j = 0; j < fig.length; j++) {
+          if (inTree.indexOf(j) >= 0) continue;
+          var d = Math.hypot(fig[i].x - fig[j].x, fig[i].y - fig[j].y, fig[i].z - fig[j].z);
+          if (d < bestD) { bestD = d; best = [i, j]; }
+        }
+      });
+      inTree.push(best[1]);
+      edges.push(best);
+    }
+    edges.forEach(function (e) { fig[e[0]].deg++; fig[e[1]].deg++; });
+    /* parfois, une boucle : deux extrémités de l'arbre se rejoignent */
+    if (rand() < 0.45) {
+      var leaves = [];
+      fig.forEach(function (s, i) { if (s.deg === 1) leaves.push(i); });
+      if (leaves.length >= 2 &&
+          Math.hypot(fig[leaves[0]].x - fig[leaves[1]].x, fig[leaves[0]].y - fig[leaves[1]].y) < spread * 1.5) {
+        edges.push([leaves[0], leaves[1]]);
+      }
+    }
+
+    /* les étoiles maîtresses : la plus reliée, et parfois une seconde */
+    var alpha = 0;
+    fig.forEach(function (s, i) { if (s.deg > fig[alpha].deg) alpha = i; });
+    var beta = rand() < 0.4 ? Math.floor(rand() * fig.length) : -1;
+    fig.forEach(function (s, i) {
+      var master = i === alpha || i === beta;
+      s.size = master ? 8 + rand() * 3.5 : 3.4 + rand() * 2.4;
+      pushStar(s.x, s.y, s.z, s.mid, s.size, master ? 2 : 1, s.phase);
+      figures.push(s);
+    });
+    edges.forEach(function (e) { pushLine(fig[e[0]], fig[e[1]], cz, rand()); });
+  }
+
+  for (var i = 0; i < N_DUST; i++) {
+    var a = rand() * TAU;
+    var lo = R_IN * 0.55, hi = R_OUT * 1.5;
+    var r = Math.sqrt(lo * lo + rand() * (hi * hi - lo * lo));
+    var z = rand() * L;
+    pushStar(Math.cos(a) * r, Math.sin(a) * r, z, z, 1.1 + Math.pow(rand(), 3) * 3, 0, rand() * TAU);
+  }
+
+  var stars = new Float32Array(starData), lines = new Float32Array(lineData);
+  var N_STARS = stars.length / 7, N_LINE_VERTS = lines.length / 12;
 
   /* ── Shaders ── */
-  /* passage commun : repli dans le tunnel, puis vue caméra */
+  var PRECISION = [
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+    "precision highp float;",
+    "#else",
+    "precision mediump float;",
+    "#endif"
+  ].join("\n");
+
+  /* passage commun : repli dans le tunnel, puis vue caméra.
+     (project(), plus bas, refait exactement ce calcul en JS.) */
   var VIEW = [
-    "uniform float uCamZ, uL, uF, uAspect, uTime;",
+    "uniform float uCamZ, uL, uF, uAspect, uTime, uH, uFocus, uAperture, uFade;",
     "uniform vec3 uCam;",        // décalage x, y et roulis
     "uniform vec2 uLook;",       // lacet, tangage
     "vec3 toView(vec3 pos, float mid, float phase) {",
-    "  float k = floor((mid - uCamZ + 200.0) / uL);",
+    "  float k = floor((mid - uCamZ + 400.0) / uL);",
     "  vec3 p = vec3(pos.xy, pos.z - uCamZ - k * uL);",
-    "  p.xy += vec2(sin(uTime * 0.31 + phase), cos(uTime * 0.23 + phase * 1.7)) * 16.0;",
+    "  p.xy += vec2(sin(uTime * 0.31 + phase), cos(uTime * 0.23 + phase * 1.7)) * 14.0;",
     "  p.xy -= uCam.xy;",
     "  float cr = cos(uCam.z), sr = sin(uCam.z);",
     "  p.xy = vec2(p.x * cr - p.y * sr, p.x * sr + p.y * cr);",
@@ -112,78 +170,181 @@
     "  p.yz = vec2(p.y * cp - p.z * sp, p.y * sp + p.z * cp);",
     "  return p;",
     "}",
-    "float fog(float z) { return smoothstep(" + FAR.toFixed(1) + ", " + (FAR * 0.5).toFixed(1) + ", z) * smoothstep(50.0, 300.0, z); }"
+    "float fog(float z) { return smoothstep(" + FAR.toFixed(1) + ", " + (FAR * 0.45).toFixed(1) + ", z) * smoothstep(60.0, 320.0, z); }",
+    /* flou de profondeur de champ, en pixels */
+    "float blur(float z) { return abs(1.0 / z - 1.0 / uFocus) * uAperture * uH; }"
   ].join("\n");
 
-  var POINT_VS = [
-    "attribute vec3 aPos; attribute vec3 aInfo;",
+  var STAR_VS = [
+    "attribute vec3 aPos; attribute vec4 aInfo;",     // repli, taille, sorte, phase
     VIEW,
-    "uniform float uH, uFocus, uAperture, uFade;",
-    "varying float vAlpha, vSoft, vKind;",
+    "uniform vec3 uPtr;",                             // pointeur (x, y en coordonnées écran, présence)
+    "varying float vAlpha, vSoft, vKind, vCore, vTint;",
     "void main() {",
-    "  vec3 p = toView(aPos, aPos.z, aInfo.z);",
+    "  vec3 p = toView(aPos, aInfo.x, aInfo.w);",
     "  float z = max(p.z, 1.0);",
-    "  float rad = aInfo.x * uF / z * uH * 0.5;",                 // rayon net, en pixels
-    "  float coc = abs(1.0 / z - 1.0 / uFocus) * uAperture * uH;", // flou de profondeur de champ
-    "  gl_PointSize = min(2.0 * (rad + coc) + 1.5, 240.0);",
-    "  gl_Position = vec4(p.x * uF / uAspect, p.y * uF, 0.0, p.z);",
-    "  float spread = rad / (rad + coc);",                         // un nœud flou s'étale : il pâlit d'autant
-    "  vAlpha = fog(p.z) * uFade * mix(0.1, 1.0, pow(spread, 1.4));",
-    "  vSoft = clamp(coc / (rad + coc), 0.0, 1.0);",
-    "  vKind = aInfo.y;",
+    "  float kind = aInfo.z;",
+    "  vec2 ndc = p.xy * uF / z * vec2(1.0 / uAspect, 1.0);",
+    /* les étoiles proches du curseur s'allument */
+    "  float near = smoothstep(0.34, 0.0, length((ndc - uPtr.xy) * vec2(uAspect, 1.0))) * uPtr.z * step(0.5, kind);",
+    "  float rad = aInfo.y * uF / z * uH * 0.5 * (1.0 + near * 0.5);",
+    "  float dim = 1.0;",
+    "  if (rad < 0.8) { dim = rad * rad / 0.64; rad = 0.8; }",       // plus petite qu'un pixel : elle pâlit au lieu de disparaître
+    "  float coc = blur(z);",
+    "  float core = rad + coc;",
+    "  float reach = kind > 1.5 ? 7.0 : (kind > 0.5 ? 4.5 : 1.0);",  // place pour le halo et les aigrettes
+    "  gl_PointSize = clamp(2.0 * core * reach + 2.0, 2.0, 250.0);",
+    "  gl_Position = vec4(ndc, 0.0, 1.0);",
+    "  if (p.z < 1.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);",      // derrière la caméra : hors champ
+    "  float twinkle = 1.0 + 0.3 * sin(uTime * (1.1 + fract(aInfo.w * 7.3) * 2.4) + aInfo.w * 40.0);",
+    "  vAlpha = fog(p.z) * uFade * dim * twinkle * mix(0.1, 1.0, pow(rad / core, 1.4)) * (1.0 + near * 1.3);",
+    "  vSoft = clamp(coc / core, 0.0, 1.0);",
+    "  vCore = core / (gl_PointSize * 0.5);",
+    "  vKind = kind;",
+    "  vTint = fract(aInfo.w * 3.7);",
     "}"
   ].join("\n");
 
-  var POINT_FS = [
-    "precision mediump float;",
-    "uniform vec3 uColA, uColB; uniform float uAdd, uGain;",
-    "varying float vAlpha, vSoft, vKind;",
+  var STAR_FS = [
+    PRECISION,
+    "uniform vec3 uColA, uColB, uColCore;",
+    "uniform float uAdd, uGain, uGlow, uRing;",
+    "varying float vAlpha, vSoft, vKind, vCore, vTint;",
     "void main() {",
-    "  float d = length(gl_PointCoord - 0.5) * 2.0;",
-    "  float a = smoothstep(1.0, 1.0 - max(vSoft, 0.14), d) * vAlpha * uGain;",
-    "  a *= mix(1.0, 0.72 + 0.28 * smoothstep(0.35, 0.95, d), vSoft);",   // liseré de bokeh
-    "  vec3 c = mix(uColA, uColB, vKind);",
-    "  gl_FragColor = vec4(c * a, a * (1.0 - uAdd));",
+    "  vec2 q = (gl_PointCoord - 0.5) * 2.0;",
+    "  float d = length(q), k = d / vCore;",                         // k = 1 au bord de l'étoile
+    "  float disc = smoothstep(1.0, 1.0 - max(vSoft, 0.25), k);",
+    "  disc *= mix(1.0, 0.7 + 0.3 * smoothstep(0.35, 0.95, k), vSoft);",   // liseré de bokeh quand elle est floue
+    "  float isStar = step(0.5, vKind), isMaster = step(1.5, vKind), sharp = 1.0 - vSoft;",
+    "  float halo = pow(max(1.0 - d, 0.0), 2.5) * 0.42 * isStar * sharp;",
+    /* aigrettes de diffraction des étoiles maîtresses */
+    "  float spikes = exp(-abs(q.y) / (vCore * 0.2)) * pow(max(1.0 - abs(q.x), 0.0), 3.0)",
+    "               + exp(-abs(q.x) / (vCore * 0.2)) * pow(max(1.0 - abs(q.y), 0.0), 3.0);",
+    "  spikes *= 0.55 * isMaster * sharp;",
+    /* et leur cercle, comme sur une carte du ciel */
+    "  float ring = smoothstep(0.24, 0.0, abs(k - 2.3)) * isMaster * sharp;",
+    "  float a = (disc + (halo + spikes) * uGlow + ring * uRing) * vAlpha * uGain;",
+    "  vec3 col = mix(mix(uColA, uColB, vTint), uColCore, disc * isStar * 0.85);",
+    "  gl_FragColor = vec4(col * a, a * (1.0 - uAdd));",
     "}"
   ].join("\n");
 
   var LINE_VS = [
-    "attribute vec3 aPos; attribute vec2 aMid;",
+    "attribute vec3 aA, aB;",
+    "attribute vec4 aI;",        // repli, phase de A, phase de B, graine
+    "attribute vec2 aE;",        // extrémité (0 = A, 1 = B), côté (-1 / +1)
     VIEW,
-    "uniform float uH, uFocus, uAperture, uFade;",
-    "varying float vAlpha;",
+    "uniform float uLineW;",
+    "varying float vAlpha, vT, vSide, vHalf, vCoc, vSeed;",
     "void main() {",
-    "  vec3 p = toView(aPos, aMid.x, aMid.y);",
-    "  float z = max(p.z, 1.0);",
-    "  float coc = abs(1.0 / z - 1.0 / uFocus) * uAperture * uH;",
-    "  gl_Position = vec4(p.x * uF / uAspect, p.y * uF, 0.0, p.z);",
-    "  vAlpha = fog(p.z) * uFade * clamp(1.0 - coc / 7.0, 0.0, 1.0);",   // un trait ne se floute pas : il s'efface
+    "  vec3 a = toView(aA, aI.x, aI.y), b = toView(aB, aI.x, aI.z);",
+    "  float za = max(a.z, 1.0), zb = max(b.z, 1.0);",
+    "  vec2 sa = a.xy * uF / za * vec2(1.0 / uAspect, 1.0);",
+    "  vec2 sb = b.xy * uF / zb * vec2(1.0 / uAspect, 1.0);",
+    "  vec2 dir = (sb - sa) * vec2(uAspect, 1.0);",
+    "  float len = length(dir);",
+    "  dir = len > 1e-5 ? dir / len : vec2(1.0, 0.0);",
+    "  vec2 nrm = vec2(-dir.y, dir.x);",
+    "  float z = mix(za, zb, aE.x);",
+    "  float coc = blur(z);",
+    "  float halfW = uLineW + coc * 0.55 + 1.0;",                    // un lien flou s'élargit…
+    "  vec2 off = nrm * aE.y * halfW * 2.0 / uH;",
+    "  off.x /= uAspect;",
+    "  gl_Position = vec4(mix(sa, sb, aE.x) + off, 0.0, 1.0);",
+    "  vAlpha = fog(mix(a.z, b.z, aE.x)) * uFade * (uLineW + 1.0) / halfW",   // … et pâlit d'autant
+    "         * step(40.0, min(a.z, b.z));",
+    "  vT = aE.x; vSide = aE.y; vHalf = halfW; vCoc = coc; vSeed = aI.w;",
     "}"
   ].join("\n");
 
   var LINE_FS = [
-    "precision mediump float;",
-    "uniform vec3 uColA; uniform float uAdd, uGain;",
-    "varying float vAlpha;",
-    "void main() { float a = vAlpha * uGain; gl_FragColor = vec4(uColA * a, a * (1.0 - uAdd)); }"
+    PRECISION,
+    "uniform vec3 uColA, uColP;",
+    "uniform float uAdd, uGain, uPulse, uTime;",
+    "varying float vAlpha, vT, vSide, vHalf, vCoc, vSeed;",
+    "void main() {",
+    "  float d = abs(vSide) * vHalf;",
+    "  float edge = smoothstep(vHalf, max(vHalf - 1.3 - vCoc * 0.5, 0.0), d);",
+    /* une impulsion parcourt le lien de temps en temps, dans un sens ou dans l'autre */
+    "  float t = vSeed > 0.5 ? vT : 1.0 - vT;",
+    "  float pos = fract(uTime * 0.085 + vSeed * 9.0) * 5.0 - 0.1;",
+    "  float u = (t - pos) / 0.075;",
+    "  float pulse = exp(-u * u);",
+    "  float a = edge * vAlpha * (uGain + pulse * uPulse);",
+    "  gl_FragColor = vec4(mix(uColA, uColP, pulse) * a, a * (1.0 - uAdd));",
+    "}"
   ].join("\n");
 
-  var BG_VS = "attribute vec2 aPos; void main() { gl_Position = vec4(aPos, 0.0, 1.0); }";
+  /* liens tirés entre le curseur et les étoiles voisines (coordonnées écran) */
+  var LINK_VS = [
+    "attribute vec2 aP; attribute vec3 aQ;",          // position · (avancement, côté, opacité)
+    "varying vec3 vQ;",
+    "void main() { vQ = aQ; gl_Position = vec4(aP, 0.0, 1.0); }"
+  ].join("\n");
+  var LINK_FS = [
+    PRECISION,
+    "uniform vec3 uColA, uColP; uniform float uAdd, uTime;",
+    "varying vec3 vQ;",
+    "void main() {",
+    "  float edge = smoothstep(1.0, 0.3, abs(vQ.y));",
+    "  float u = (vQ.x - fract(uTime * 0.8)) / 0.14;",
+    "  float pulse = exp(-u * u);",                                        // du curseur vers l'étoile
+    "  float a = edge * vQ.z * (0.5 + 0.5 * vQ.x + pulse * 0.9);",
+    "  gl_FragColor = vec4(mix(uColA, uColP, pulse) * a, a * (1.0 - uAdd));",
+    "}"
+  ].join("\n");
+
+  var QUAD_VS = "attribute vec2 aPos; void main() { gl_Position = vec4(aPos, 0.0, 1.0); }";
+
+  /* nébuleuse : du bruit fractal replié sur lui-même, calculé en
+     basse définition (elle est floue par nature) puis étirée */
+  var NEBULA_FS = [
+    PRECISION,
+    "uniform vec2 uRes, uShift; uniform float uTime;",
+    "float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }",
+    "float noise(vec2 p) {",
+    "  vec2 i = floor(p), f = fract(p);",
+    "  f = f * f * (3.0 - 2.0 * f);",
+    "  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);",
+    "}",
+    "float fbm(vec2 p) {",
+    "  float v = 0.0, a = 0.5;",
+    "  for (int i = 0; i < 5; i++) { v += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; }",
+    "  return v;",
+    "}",
+    "void main() {",
+    "  vec2 uv = gl_FragCoord.xy / uRes;",
+    "  vec2 p = (uv - 0.5) * vec2(uRes.x / uRes.y, 1.0) * 1.35 + uShift;",
+    "  float a = fbm(p + vec2(uTime * 0.006, 0.0));",
+    "  float b = fbm(p * 1.8 + vec2(a * 1.7, -a * 1.3) + 4.7 + uTime * 0.004);",
+    "  float cloud = smoothstep(0.36, 0.8, b);",
+    "  float wisps = smoothstep(0.45, 0.9, fbm(p * 3.1 + b * 2.2));",
+    "  vec3 col = vec3(0.02, 0.085, 0.36) * cloud",
+    "           + vec3(0.13, 0.05, 0.30) * cloud * smoothstep(0.42, 0.75, a) * 0.7",    // une pointe de violet
+    "           + vec3(0.03, 0.22, 0.38) * wisps * cloud * 0.4;",                        // filaments plus clairs
+    "  gl_FragColor = vec4(col, cloud);",
+    "}"
+  ].join("\n");
+
   var BG_FS = [
-    "precision mediump float;",
-    "uniform vec2 uRes, uGlowAt; uniform vec3 uBg, uGlow; uniform float uGlowAmt;",
+    PRECISION,
+    "uniform vec2 uRes, uGlowAt; uniform vec3 uBg, uGlow; uniform float uGlowAmt, uDark, uNebOn;",
+    "uniform sampler2D uNeb;",
     "void main() {",
     "  vec2 uv = gl_FragCoord.xy / uRes;",
     "  vec2 q = (uv - uGlowAt) * vec2(uRes.x / uRes.y, 1.0);",
     "  float g = exp(-dot(q, q) * 2.6);",                                  // halo au centre
     "  float edge = smoothstep(0.35, 1.25, length((uv - 0.5) * vec2(uRes.x / uRes.y, 1.0)));",
-    "  vec3 c = uBg + uGlow * (g * uGlowAmt) - edge * 0.035 * (1.0 - uBg) - edge * 0.02 * uBg;",
+    "  vec3 c = uBg + uGlow * (g * uGlowAmt) - edge * 0.035 * (1.0 - uBg) - edge * 0.025 * uBg;",
+    "  vec4 neb = texture2D(uNeb, uv) * uNebOn;",
+    "  c += neb.rgb * uDark * 0.8;",                                      // la nuit : de la lumière
+    "  c -= neb.a * (1.0 - uDark) * vec3(0.05, 0.036, 0.004);",            // le jour : un lavis bleuté sur le papier
     "  float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);",
-    "  gl_FragColor = vec4(c + (n - 0.5) / 255.0, 1.0);",                  // grain : pas de bandes dans le dégradé
+    "  gl_FragColor = vec4(c + (n - 0.5) / 255.0, 1.0);",                  // grain : pas de bandes dans les dégradés
     "}"
   ].join("\n");
 
-  function program(vs, fs) {
+  function program(vs, fs, attribs) {
     var p = gl.createProgram();
     [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].forEach(function (s) {
       var sh = gl.createShader(s[0]);
@@ -192,6 +353,7 @@
       if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
       gl.attachShader(p, sh);
     });
+    attribs.forEach(function (name, i) { gl.bindAttribLocation(p, i, name); });
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     var u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
@@ -202,31 +364,60 @@
     return { p: p, u: u };
   }
 
-  var pointProg, lineProg, bgProg;
+  var starProg, lineProg, linkProg, bgProg, nebProg;
   try {
-    pointProg = program(POINT_VS, POINT_FS);
-    lineProg = program(LINE_VS, LINE_FS);
-    bgProg = program(BG_VS, BG_FS);
+    starProg = program(STAR_VS, STAR_FS, ["aPos", "aInfo"]);
+    lineProg = program(LINE_VS, LINE_FS, ["aA", "aB", "aI", "aE"]);
+    linkProg = program(LINK_VS, LINK_FS, ["aP", "aQ"]);
+    bgProg = program(QUAD_VS, BG_FS, ["aPos"]);
+    nebProg = program(QUAD_VS, NEBULA_FS, ["aPos"]);
   } catch (e) {
     if (window.console) console.warn("monde3d : shaders refusés, repli sur le site 2D.", e);
     return;
   }
 
-  function buffer(data) {
+  function buffer(data, usage) {
     var b = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, b);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, data, usage || gl.STATIC_DRAW);
     return b;
   }
-  var pointBuf = buffer(pts), lineBuf = buffer(lines);
-  var bgBuf = buffer(new Float32Array([-1, -1, 3, -1, -1, 3]));
+  var starBuf = buffer(stars), lineBuf = buffer(lines);
+  var quadBuf = buffer(new Float32Array([-1, -1, 3, -1, -1, 3]));
+  var MAX_LINKS = 6;
+  var linkData = new Float32Array(MAX_LINKS * 6 * 5);
+  var linkBuf = buffer(linkData, gl.DYNAMIC_DRAW);
+
+  /* quatre attributs au plus : on les active une fois pour toutes */
+  for (var at = 0; at < 4; at++) gl.enableVertexAttribArray(at);
+  function attribs(buf, stride, sizes) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    var offset = 0;
+    for (var k = 0; k < 4; k++) {
+      if (k < sizes.length) {
+        gl.enableVertexAttribArray(k);
+        gl.vertexAttribPointer(k, sizes[k], gl.FLOAT, false, stride, offset);
+        offset += sizes[k] * 4;
+      } else {
+        gl.disableVertexAttribArray(k);
+      }
+    }
+  }
 
   /* le canvas EST le fond de page : opaque, il peint lui-même la couleur du thème */
   canvas.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;height:100lvh;z-index:-1;pointer-events:none;display:block";
   document.body.insertBefore(canvas, document.body.firstChild);
   root.classList.add("gl-world");
 
+  /* ── Taille ; la nébuleuse a sa propre petite texture ── */
   var W = 0, H = 0, dpr = 1;
+  var nebTex = gl.createTexture(), nebFbo = gl.createFramebuffer(), nebW = 0, nebH = 0, nebOk = false;
+  gl.bindTexture(gl.TEXTURE_2D, nebTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     var w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
@@ -234,22 +425,34 @@
     W = w; H = h;
     canvas.width = W;
     canvas.height = H;
-    gl.viewport(0, 0, W, H);
+    nebW = Math.max(32, Math.round(canvas.clientWidth / 5));
+    nebH = Math.max(32, Math.round(canvas.clientHeight / 5));
+    gl.bindTexture(gl.TEXTURE_2D, nebTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, nebW, nebH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, nebFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, nebTex, 0);
+    nebOk = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
   window.addEventListener("resize", resize);
   resize();
 
   /* ── Caméra ── */
-  var pointer = { x: 0, y: 0 }, look = { x: 0, y: 0 };
+  var pointer = { x: 0, y: 0, px: -1e4, py: -1e4, on: 0 }, look = { x: 0, y: 0 }, ptrGlow = 0;
   window.addEventListener("pointermove", function (e) {
     if (e.pointerType === "touch") return;
     pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
     pointer.y = (e.clientY / window.innerHeight) * 2 - 1;
+    pointer.px = e.clientX;
+    pointer.py = e.clientY;
+    pointer.on = 1;
   }, { passive: true });
+  document.documentElement.addEventListener("mouseleave", function () { pointer.on = 0; });
 
   var F_REST = 1.732;            // 1 / tan(30°) : champ de 60°
   var F_WARP = 1.05;             // grand angle pendant la plongée
   var DRIFT = 15;                // dérive lente vers l'avant, en unités par seconde
+  var FOCUS = 1500, APERTURE = 3.2;
 
   /* arrivée : si l'on vient d'une autre page du site, on reprend le
      voyage là où il s'est arrêté, en décélérant */
@@ -266,35 +469,90 @@
   var leaveAt = 0;               // début de la plongée de sortie
   var theme = root.dataset.theme === "dark" ? 1 : 0;
   var camZ = z0;
-  /* page de lecture (texte long) : le réseau se fait discret derrière */
+  /* page de lecture (texte long) : le ciel se fait discret derrière */
   var CALM = document.querySelector("main > .container") ? 0.4 : 1;
 
   function mix(a, b, t) { return a + (b - a) * t; }
   function mix3(a, b, t) { return [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)]; }
   function easeOut(t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return 1 - Math.pow(1 - t, 3); }
 
-  var BG = [[250 / 255, 250 / 255, 248 / 255], [11 / 255, 18 / 255, 32 / 255]];
+  /* [jour, nuit] */
+  var BG = [[250 / 255, 250 / 255, 248 / 255], [9 / 255, 15 / 255, 30 / 255]];
   var COL_A = [[0, 47 / 255, 167 / 255], [91 / 255, 124 / 255, 1]];
-  var COL_B = [[91 / 255, 124 / 255, 1], [0.86, 0.9, 1]];
+  var COL_B = [[70 / 255, 104 / 255, 236 / 255], [0.74, 0.82, 1]];
+  var COL_CORE = [[0, 36 / 255, 140 / 255], [1, 1, 1]];
+  var COL_PULSE = [[0.2, 0.42, 1], [0.92, 0.96, 1]];
   var GLOW = [[0.1, 0.2, 0.55], [0.16, 0.26, 0.75]];
 
-  function setCommon(prog, time, F, fade, gain) {
+  var cam = { x: 0, y: 0, roll: 0, yaw: 0, pitch: 0, F: F_REST, time: 0 };
+
+  function setView(prog, fade) {
     var u = prog.u;
     gl.uniform1f(u.uCamZ, camZ);
     gl.uniform1f(u.uL, L);
-    gl.uniform1f(u.uF, F);
+    gl.uniform1f(u.uF, cam.F);
     gl.uniform1f(u.uAspect, W / H);
-    gl.uniform1f(u.uTime, time);
-    gl.uniform3f(u.uCam, look.x * 70, -look.y * 45, Math.sin(time * 0.05) * 0.06);
-    gl.uniform2f(u.uLook, look.x * 0.07, look.y * 0.045);
+    gl.uniform1f(u.uTime, cam.time);
+    gl.uniform3f(u.uCam, cam.x, cam.y, cam.roll);
+    gl.uniform2f(u.uLook, cam.yaw, cam.pitch);
     gl.uniform1f(u.uH, H);
-    gl.uniform1f(u.uFocus, 1250);
-    gl.uniform1f(u.uAperture, 5.5);
+    gl.uniform1f(u.uFocus, FOCUS);
+    gl.uniform1f(u.uAperture, APERTURE);
     gl.uniform1f(u.uFade, fade);
     gl.uniform1f(u.uAdd, theme);
-    gl.uniform1f(u.uGain, gain);
-    gl.uniform3fv(u.uColA, mix3(COL_A[0], COL_A[1], theme));
-    if (u.uColB) gl.uniform3fv(u.uColB, mix3(COL_B[0], COL_B[1], theme));
+  }
+
+  /* le même calcul que toView() dans les shaders, pour savoir où une
+     étoile tombe à l'écran. Renvoie null si elle est derrière la caméra. */
+  function project(s) {
+    var k = Math.floor((s.mid - camZ + 400) / L);
+    var x = s.x + Math.sin(cam.time * 0.31 + s.phase) * 14 - cam.x;
+    var y = s.y + Math.cos(cam.time * 0.23 + s.phase * 1.7) * 14 - cam.y;
+    var z = s.z - camZ - k * L;
+    var cr = Math.cos(cam.roll), sr = Math.sin(cam.roll);
+    var x1 = x * cr - y * sr, y1 = x * sr + y * cr;
+    var cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    var x2 = x1 * cy - z * sy, z2 = x1 * sy + z * cy;
+    var cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+    var y3 = y1 * cp - z2 * sp, z3 = y1 * sp + z2 * cp;
+    if (z3 < 60) return null;
+    return { x: x2 * cam.F / z3 / (W / H), y: y3 * cam.F / z3, z: z3 };
+  }
+
+  /* ── Le curseur est un nœud : il se relie aux étoiles voisines ── */
+  var LINK_R = 190;              // portée, en pixels CSS
+  function buildLinks() {
+    if (!pointer.on || leaveAt) return 0;
+    var cw = canvas.clientWidth, ch = canvas.clientHeight;
+    var found = [];
+    for (var i = 0; i < figures.length; i++) {
+      var p = project(figures[i]);
+      if (!p || p.z > FAR * 0.8) continue;
+      var sx = (p.x * 0.5 + 0.5) * cw, sy = (0.5 - p.y * 0.5) * ch;
+      var d = Math.hypot(sx - pointer.px, sy - pointer.py);
+      if (d > LINK_R || d < 4) continue;
+      /* une étoile floue (trop proche ou trop loin du plan net) ne se relie pas */
+      var sharp = 1 - Math.min(1, Math.abs(1 / p.z - 1 / FOCUS) * APERTURE * H / 7);
+      var a = Math.pow(1 - d / LINK_R, 1.3) * sharp;
+      if (a > 0.02) found.push({ x: sx, y: sy, a: a });
+    }
+    found.sort(function (m, n) { return n.a - m.a; });
+    var n = Math.min(found.length, MAX_LINKS), o = 0;
+    var half = 1.6;              // demi-largeur du trait, en pixels CSS
+    for (i = 0; i < n; i++) {
+      var f = found[i];
+      var dx = f.x - pointer.px, dy = f.y - pointer.py, len = Math.hypot(dx, dy);
+      var nx = -dy / len * half, ny = dx / len * half;
+      [[0, -1], [0, 1], [1, -1], [1, -1], [0, 1], [1, 1]].forEach(function (c) {
+        var x = (c[0] ? f.x : pointer.px) + nx * c[1], y = (c[0] ? f.y : pointer.py) + ny * c[1];
+        linkData[o++] = x / cw * 2 - 1;
+        linkData[o++] = 1 - y / ch * 2;
+        linkData[o++] = c[0];
+        linkData[o++] = c[1];
+        linkData[o++] = f.a;
+      });
+    }
+    return n * 6;
   }
 
   function frame(now) {
@@ -307,6 +565,7 @@
     theme += ((root.dataset.theme === "dark" ? 1 : 0) - theme) * Math.min(1, dt * 7);
     look.x += (pointer.x - look.x) * Math.min(1, dt * 2.5);
     look.y += (pointer.y - look.y) * Math.min(1, dt * 2.5);
+    ptrGlow += (pointer.on - ptrGlow) * Math.min(1, dt * 5);
     scrollZ += (window.scrollY * 0.9 - scrollZ) * Math.min(1, dt * 6);
 
     var speed = DRIFT, F = F_REST, fade = 1;
@@ -329,56 +588,87 @@
     travel += speed * dt;
     camZ = (z0 + travel + scrollZ) % L;
 
+    cam.x = look.x * 80;
+    cam.y = -look.y * 50;
+    cam.roll = Math.sin(time * 0.05) * 0.06;
+    cam.yaw = look.x * 0.08;
+    cam.pitch = look.y * 0.05;
+    cam.F = F;
+    cam.time = time;
+
     gl.disable(gl.BLEND);
+    attribs(quadBuf, 0, [2]);
+
+    /* 1 · la nébuleuse, dans sa petite texture */
+    if (nebOk) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, nebFbo);
+      gl.viewport(0, 0, nebW, nebH);
+      gl.useProgram(nebProg.p);
+      gl.uniform2f(nebProg.u.uRes, nebW, nebH);
+      /* très lointaine : elle glisse à peine quand on avance ou qu'on défile */
+      gl.uniform2f(nebProg.u.uShift, 3.1 + look.x * 0.035 + travel * 0.000012, 1.7 - look.y * 0.03 - scrollZ * 0.00022);
+      gl.uniform1f(nebProg.u.uTime, time);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    /* 2 · le fond */
+    gl.viewport(0, 0, W, H);
     gl.useProgram(bgProg.p);
-    gl.bindBuffer(gl.ARRAY_BUFFER, bgBuf);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, nebTex);
+    gl.uniform1i(bgProg.u.uNeb, 0);
+    gl.uniform1f(bgProg.u.uNebOn, nebOk ? mix(0.55, 1, CALM) : 0);
+    gl.uniform1f(bgProg.u.uDark, theme);
     gl.uniform2f(bgProg.u.uRes, W, H);
     gl.uniform2f(bgProg.u.uGlowAt, 0.5 - look.x * 0.04, 0.56 + look.y * 0.04);
     gl.uniform3fv(bgProg.u.uBg, mix3(BG[0], BG[1], theme));
     gl.uniform3fv(bgProg.u.uGlow, mix3(GLOW[0], GLOW[1], theme));
-    gl.uniform1f(bgProg.u.uGlowAmt, mix(-0.05, 0.2, theme));   // en clair : une ombre bleutée très légère
+    gl.uniform1f(bgProg.u.uGlowAmt, mix(-0.04, 0.16, theme));   // en clair : une ombre bleutée très légère
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    /* couleurs prémultipliées : alpha 0 = additif (sombre), alpha a = encre sur papier (clair) */
+    /* couleurs prémultipliées : alpha 0 = additif (nuit), alpha a = encre sur papier (jour) */
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
+    /* 3 · les liens des constellations */
     gl.useProgram(lineProg.p);
-    gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
-    setCommon(lineProg, time, F, fade, mix(0.13, 0.3, theme) * CALM);
-    gl.drawArrays(gl.LINES, 0, lines.length / 5);
+    attribs(lineBuf, 48, [3, 3, 4, 2]);
+    setView(lineProg, fade);
+    gl.uniform1f(lineProg.u.uLineW, 0.55 * dpr);
+    gl.uniform1f(lineProg.u.uGain, mix(0.34, 0.6, theme) * CALM);
+    gl.uniform1f(lineProg.u.uPulse, mix(0.9, 1.5, theme) * CALM);
+    gl.uniform3fv(lineProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
+    gl.uniform3fv(lineProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
+    gl.drawArrays(gl.TRIANGLES, 0, N_LINE_VERTS);
 
-    gl.useProgram(pointProg.p);
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
-    setCommon(pointProg, time, F, fade, mix(0.42, 0.8, theme) * CALM);
-    gl.drawArrays(gl.POINTS, 0, COUNT);
-  }
-
-  gl.bindAttribLocation(pointProg.p, 0, "aPos");
-  gl.bindAttribLocation(pointProg.p, 1, "aInfo");
-  gl.linkProgram(pointProg.p);
-  gl.bindAttribLocation(lineProg.p, 0, "aPos");
-  gl.bindAttribLocation(lineProg.p, 1, "aMid");
-  gl.linkProgram(lineProg.p);
-  gl.bindAttribLocation(bgProg.p, 0, "aPos");
-  gl.linkProgram(bgProg.p);
-  /* une nouvelle édition des liens invalide les emplacements d'uniformes : on les relit */
-  [pointProg, lineProg, bgProg].forEach(function (prog) {
-    var n = gl.getProgramParameter(prog.p, gl.ACTIVE_UNIFORMS);
-    for (var k = 0; k < n; k++) {
-      var name = gl.getActiveUniform(prog.p, k).name;
-      prog.u[name] = gl.getUniformLocation(prog.p, name);
+    /* 4 · les liens vers le curseur */
+    var linkVerts = buildLinks();
+    if (linkVerts) {
+      gl.useProgram(linkProg.p);
+      gl.bindBuffer(gl.ARRAY_BUFFER, linkBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, linkData);
+      attribs(linkBuf, 20, [2, 3]);
+      gl.uniform1f(linkProg.u.uAdd, theme);
+      gl.uniform1f(linkProg.u.uTime, time);
+      gl.uniform3fv(linkProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
+      gl.uniform3fv(linkProg.u.uColP, mix3(COL_PULSE[0], COL_PULSE[1], theme));
+      gl.drawArrays(gl.TRIANGLES, 0, linkVerts);
     }
-  });
 
+    /* 5 · les étoiles */
+    gl.useProgram(starProg.p);
+    attribs(starBuf, 28, [3, 4]);
+    setView(starProg, fade);
+    gl.uniform3f(starProg.u.uPtr, pointer.x, -pointer.y, ptrGlow);
+    gl.uniform1f(starProg.u.uGain, mix(0.62, 0.95, theme) * mix(0.55, 1, CALM));
+    gl.uniform1f(starProg.u.uGlow, mix(0.3, 1, theme));
+    gl.uniform1f(starProg.u.uRing, mix(0.55, 0.16, theme));
+    gl.uniform3fv(starProg.u.uColA, mix3(COL_A[0], COL_A[1], theme));
+    gl.uniform3fv(starProg.u.uColB, mix3(COL_B[0], COL_B[1], theme));
+    gl.uniform3fv(starProg.u.uColCore, mix3(COL_CORE[0], COL_CORE[1], theme));
+    gl.drawArrays(gl.POINTS, 0, N_STARS);
+  }
   requestAnimationFrame(frame);
 
   /* interface publique, pour les transitions de page */
@@ -391,7 +681,18 @@
       }, 380);
     },
     /* retour par l'historique (bfcache) : la page revient telle quelle */
-    back: function () { leaveAt = 0; }
+    back: function () { leaveAt = 0; },
+    /* hook de test (console uniquement) : où tombent les étoiles des constellations, en pixels CSS */
+    etoiles: function () {
+      var out = [];
+      figures.forEach(function (s) {
+        var p = project(s);
+        if (p && Math.abs(p.x) < 1 && Math.abs(p.y) < 1) {
+          out.push({ x: (p.x * 0.5 + 0.5) * canvas.clientWidth, y: (0.5 - p.y * 0.5) * canvas.clientHeight, z: p.z });
+        }
+      });
+      return out;
+    }
   };
 })();
 
@@ -407,7 +708,8 @@
   function all(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
 
   /* ── Bascule sous le curseur ──
-     L'élément pivote vers le pointeur ; --gx/--gy placent le reflet.
+     L'élément pivote vers le pointeur ; --gx/--gy placent le reflet,
+     --shx/--shy l'ombre portée.
      Souris et stylet seulement : au doigt il n'y a pas de survol. */
   function tilt(el, max) {
     el.classList.add("t3d");
@@ -421,6 +723,9 @@
       el.style.setProperty("--crx", ((0.5 - py) * 2 * max).toFixed(2) + "deg");
       el.style.setProperty("--gx", (px * 100).toFixed(1) + "%");
       el.style.setProperty("--gy", (py * 100).toFixed(1) + "%");
+      /* l'ombre portée part à l'opposé du côté qui se soulève */
+      el.style.setProperty("--shx", ((0.5 - px) * 26).toFixed(1) + "px");
+      el.style.setProperty("--shy", ((0.5 - py) * 26 + 16).toFixed(1) + "px");
     });
     el.addEventListener("pointerleave", function () {
       el.classList.remove("tilting");

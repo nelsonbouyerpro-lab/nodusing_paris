@@ -118,6 +118,23 @@ html.gl-world { background: var(--bg); }
 }
 .ui-3d .t3d.tilting::after { opacity: 1; }
 
+/* l'ombre portée suit la bascule (--shx/--shy posés en JS) */
+.ui-3d .work-card.t3d.tilting,
+.ui-3d .brick-points li.t3d.tilting {
+  box-shadow: var(--shx, 0px) var(--shy, 16px) 38px -12px rgba(0, 47, 167, 0.34);
+}
+[data-theme="dark"].ui-3d .work-card.t3d.tilting,
+[data-theme="dark"].ui-3d .brick-points li.t3d.tilting {
+  box-shadow: var(--shx, 0px) var(--shy, 16px) 44px -12px rgba(0, 0, 0, 0.7),
+              0 0 0 1px rgba(91, 124, 255, 0.25);
+}
+
+/* les surfaces laissent deviner le ciel derrière elles */
+.gl-world .work-card,
+.gl-world .brick-points li {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+}
+
 /* accueil, écran large : les cartes regardent vers le logo. Le
    panneau borne son défilement : on lui rend de la marge pour que
    les coins des cartes inclinées ne soient pas rognés. */
